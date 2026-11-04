@@ -1,2 +1,0 @@
--- Jomana's procedures and functions.
--- Only Jomana edits this file. CI glues it into Procedures.sql on main.

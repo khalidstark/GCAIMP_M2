@@ -6,8 +6,8 @@ GIU Curriculum and Academic Innovation Management Platform: SQL Server database,
 |---|---|---|
 | `Tables.sql` | Creates the `GCAIMP` database and all tables | Agreed by the team |
 | `Insertions.sql` | Sample data | Agreed by the team |
-| `procedures/<Name>.sql` | Your procedures and functions | **Only you** |
-| `executions/<Name>.sql` | Your `EXEC` / `SELECT` test calls | **Only you** |
+| `procedures/<Name>.sql` | Your procedures and functions (you create it on your branch) | **Only you** |
+| `executions/<Name>.sql` | Your `EXEC` / `SELECT` test calls (you create it on your branch) | **Only you** |
 | `Procedures.sql` | All procedures glued together | **Nobody (CI generates it)** |
 | `Executions.sql` | All executions glued together | **Nobody (CI generates it)** |
 | `Procedures.pdf` | User stories split between the team | Nobody |
@@ -36,7 +36,8 @@ Each team member has their own branch and their own file. Nobody writes directly
    ```bash
    git pull origin main
    ```
-3. **Write your procedures** in `procedures/<YourName>.sql` and your test calls in `executions/<YourName>.sql`.
+3. **Create your files** (first time only) and write your procedures in `procedures/<YourName>.sql` and your test calls in `executions/<YourName>.sql`.
+   - Use the exact file name from the table above (e.g. `procedures/Lamar.sql`, capital first letter).
    - Put `GO` between each `CREATE PROCEDURE` / `CREATE FUNCTION`.
    - You don't need `USE GCAIMP;` at the top. CI adds it.
    - Don't touch other people's files, `Procedures.sql` or `Executions.sql`.

@@ -1,2 +1,0 @@
--- Abdallah's EXEC / SELECT test calls.
--- Only Abdallah edits this file. CI glues it into Executions.sql on main.

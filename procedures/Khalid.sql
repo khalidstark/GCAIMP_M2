@@ -1,2 +1,0 @@
--- Khalid's procedures and functions.
--- Only Khalid edits this file. CI glues it into Procedures.sql on main.

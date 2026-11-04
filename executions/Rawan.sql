@@ -1,2 +1,0 @@
--- Rawan's EXEC / SELECT test calls.
--- Only Rawan edits this file. CI glues it into Executions.sql on main.
