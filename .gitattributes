@@ -1,0 +1,2 @@
+*.sql text eol=crlf
+*.yml text eol=lf
