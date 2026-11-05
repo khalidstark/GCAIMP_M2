@@ -23,7 +23,7 @@ jobs:
             printf 'USE GCAIMP;\nGO\n' > "$out"
             [ -d "$dir" ] || return 0
             files=""
-            for n in Khalid Lamar Jomana Abdallah Rawan; do
+            for n in Khalid Lamar Jomana Abdullah Rawan; do
               [ -f "$dir/$n.sql" ] && files="$files $dir/$n.sql"
             done
             for f in $(ls "$dir"/*.sql 2>/dev/null | sort); do
