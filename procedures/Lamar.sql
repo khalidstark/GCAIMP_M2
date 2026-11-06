@@ -14,7 +14,7 @@ BEGIN
     SELECT SCOPE_IDENTITY() AS ProgramID;
 END;
 GO
-------------------------
+-----------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE AddCourse
     @CourseCode varchar(20),
@@ -54,7 +54,7 @@ BEGIN
     PRINT 'Course added.';
 END;
 GO
-
+----------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE AddCourseRequisite
     @CourseCode varchar(20),
@@ -94,7 +94,7 @@ BEGIN
     PRINT 'Requisite added.';
 END;
 GO
-
+------------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE AddILO
     @CourseCode varchar(20),
@@ -119,5 +119,153 @@ BEGIN
     VALUES (@CourseCode, @ILOCode, @Statement, @CognitiveLevel);
 
     PRINT 'ILO added.';
+END;
+GO
+
+----------------------------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE UpdateILO
+    @CourseCode varchar(20),
+    @ILOCode varchar(20),
+    @Statement varchar(1000),
+    @CognitiveLevel varchar(50)
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM ILO WHERE CourseCode = @CourseCode AND ILOCode = @ILOCode)
+    BEGIN
+        PRINT 'This ILO does not exist.';
+        RETURN;
+    END
+
+    UPDATE ILO
+    SET Statement      = ISNULL(@Statement, Statement),
+        CognitiveLevel = ISNULL(@CognitiveLevel, CognitiveLevel)
+    WHERE CourseCode = @CourseCode AND ILOCode = @ILOCode;
+
+    PRINT 'ILO updated.';
+END;
+GO
+--------------------------------------------------------------------------------------------------------------------------------
+CREATE PROCEDURE MapILOToPLO
+    @CourseCode varchar(20),
+    @ILOCode varchar(20),
+    @ProgramID int,
+    @PLOCode varchar(20),
+    @CoverageLevel varchar(50),
+    @IsAssessmentPoint bit
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM ILO WHERE CourseCode = @CourseCode AND ILOCode = @ILOCode)
+    BEGIN
+        PRINT 'This ILO does not exist.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM PLO WHERE ProgramID = @ProgramID AND PLOCode = @PLOCode)
+    BEGIN
+        PRINT 'This PLO does not exist.';
+        RETURN;
+    END
+
+    IF @CoverageLevel NOT IN ('Introduced', 'Reinforced', 'Mastered')
+    BEGIN
+        PRINT 'Coverage level must be Introduced, Reinforced or Mastered.';
+        RETURN;
+    END
+
+    IF EXISTS (SELECT 1 FROM Outcome_Mapping
+               WHERE CourseCode = @CourseCode AND ILOCode = @ILOCode
+                 AND ProgramID = @ProgramID AND PLOCode = @PLOCode)
+    BEGIN
+        PRINT 'This mapping already exists.';
+        RETURN;
+    END
+
+    INSERT INTO Outcome_Mapping (CoverageLevel, IsAssessmentPoint, CourseCode, ILOCode, ProgramID, PLOCode)
+    VALUES (@CoverageLevel, @IsAssessmentPoint, @CourseCode, @ILOCode, @ProgramID, @PLOCode);
+
+    SELECT SCOPE_IDENTITY() AS MappingID;
+END;
+GO
+
+--------------------------------------------------------------------
+
+CREATE PROCEDURE SubmitModificationProposal
+    @ProposerID int,
+    @Title varchar(150),
+    @Rationale varchar(1000),
+    @ModificationType varchar(50),
+    @CurrentStateSummary varchar(1000),
+    @ProposedStateSummary varchar(1000),
+    @CourseCode varchar(20),
+    @ProgramID int,
+    @VersionLabel varchar(20),
+    @AcademicYear varchar(50),
+    @AssessmentID int
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Academic_Instructor WHERE MemberID = @ProposerID)
+    BEGIN
+        PRINT 'Only an academic instructor can submit a proposal.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Course WHERE CourseCode = @CourseCode)
+    BEGIN
+        PRINT 'This course does not exist.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Curriculum_Version
+                   WHERE ProgramID = @ProgramID AND VersionLabel = @VersionLabel
+                     AND AcademicYear = @AcademicYear)
+    BEGIN
+        PRINT 'This curriculum version does not exist.';
+        RETURN;
+    END
+
+    IF @AssessmentID IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM Outcome_Assessment WHERE AssessmentID = @AssessmentID)
+    BEGIN
+        PRINT 'This assessment does not exist.';
+        RETURN;
+    END
+
+    INSERT INTO Modification_Proposal (Title, Rationale, ModificationType, CurrentStateSummary,
+        ProposedStateSummary, ProposerID, CourseCode, ProgramID, VersionLabel, AcademicYear, AssessmentID)
+    VALUES (@Title, @Rationale, @ModificationType, @CurrentStateSummary,
+        @ProposedStateSummary, @ProposerID, @CourseCode, @ProgramID, @VersionLabel, @AcademicYear, @AssessmentID);
+
+    SELECT SCOPE_IDENTITY() AS ProposalID;
+END;
+GO
+ ----------------------------------------------------------------------------------------------------------------------------------- 
+
+CREATE PROCEDURE ReviseModificationProposal
+    @ProposalID int,
+    @Rationale varchar(1000),
+    @ProposedStateSummary varchar(1000)
+AS
+BEGIN
+    DECLARE @LastDecision varchar(50);
+
+    SELECT TOP 1 @LastDecision = Decision
+    FROM Approval_Record
+    WHERE ProposalID = @ProposalID
+    ORDER BY DecisionDate DESC, ApprovalID DESC;
+
+    IF @LastDecision IS NULL OR @LastDecision <> 'Returned'
+    BEGIN
+        PRINT 'Only a proposal that was returned for revision can be revised.';
+        RETURN;
+    END
+
+    UPDATE Modification_Proposal
+    SET Rationale            = ISNULL(@Rationale, Rationale),
+        ProposedStateSummary = ISNULL(@ProposedStateSummary, ProposedStateSummary),
+        SubmissionDate       = GETDATE()
+    WHERE ProposalID = @ProposalID;
+
+    PRINT 'Proposal revised and resubmitted.';
 END;
 GO
