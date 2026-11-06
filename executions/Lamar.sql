@@ -22,3 +22,22 @@ EXEC SubmitModificationProposal 3, 'Add Data Engineering', 'Industry needs data 
      'Not offered', 'Core in semester 8', 'CSEN701', 1, 'v3', '2026-2027', NULL;
 
 EXEC ReviseModificationProposal 2, 'ILO1 target not met, ILO3 now measurable', NULL;
+
+SELECT * FROM ViewProposalStatus(2);
+SELECT * FROM ViewCurriculumVersion(1, 'v3', '2026-2027') ORDER BY StudySemesterNo;
+SELECT * FROM ViewCourseILOs('CSEN501');
+
+SELECT * FROM CompareCurriculumVersions(1, 'v1', '2024-2025', 'v2', '2025-2026');
+SELECT * FROM ViewProgramCurriculumMap(1);
+
+SELECT * FROM GetUncoveredPLOs(1);
+
+DECLARE @MapID int = (SELECT MappingID FROM Outcome_Mapping
+                      WHERE CourseCode = 'CSEN701' AND ILOCode = 'ILO1'
+                        AND ProgramID = 1 AND PLOCode = 'PLO4');
+EXEC ReviewOutcomeMapping @MapID, 'Approved';
+
+SELECT * FROM GetUncoveredPLOs(1);
+SELECT * FROM GetPLOCoverageSummary(1);
+GO
+

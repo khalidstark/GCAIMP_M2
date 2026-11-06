@@ -269,3 +269,152 @@ BEGIN
     PRINT 'Proposal revised and resubmitted.';
 END;
 GO
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE FUNCTION ViewProposalStatus (@ProposalID int)
+RETURNS TABLE
+AS
+RETURN
+    SELECT ar.Decision,
+           ar.DecisionLevel,
+           am.FullName AS Approver,
+           ar.DecisionDate,
+           ar.Comments
+    FROM Approval_Record ar
+    JOIN Academic_Member am ON am.MemberID = ar.DeciderID
+    WHERE ar.ProposalID = @ProposalID;
+GO
+
+CREATE FUNCTION ViewCurriculumVersion (@ProgramID int, @VersionLabel varchar(20), @AcademicYear varchar(50))
+RETURNS TABLE
+AS
+RETURN
+    SELECT vc.StudySemesterNo,
+           c.CourseCode,
+           c.Title,
+           c.CreditHours,
+           vc.IsMandatory
+    FROM Version_Course vc
+    JOIN Course c ON c.CourseCode = vc.CourseCode
+    WHERE vc.ProgramID = @ProgramID
+      AND vc.VersionLabel = @VersionLabel
+      AND vc.AcademicYear = @AcademicYear;
+GO
+
+CREATE FUNCTION ViewCourseILOs (@CourseCode varchar(20))
+RETURNS TABLE
+AS
+RETURN
+    SELECT ILOCode, Statement, CognitiveLevel
+    FROM ILO
+    WHERE CourseCode = @CourseCode;
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE FUNCTION CompareCurriculumVersions (@ProgramID int,
+    @OldVersionLabel varchar(20), @OldAcademicYear varchar(50),
+    @NewVersionLabel varchar(20), @NewAcademicYear varchar(50))
+RETURNS TABLE
+AS
+RETURN
+    SELECT COALESCE(n.CourseCode, o.CourseCode) AS CourseCode,
+           CASE WHEN o.CourseCode IS NULL THEN 'Added'
+                WHEN n.CourseCode IS NULL THEN 'Removed'
+                ELSE 'Moved'
+           END AS ChangeType,
+           o.StudySemesterNo AS OldStudySemester,
+           n.StudySemesterNo AS NewStudySemester
+    FROM (SELECT CourseCode, StudySemesterNo FROM Version_Course
+          WHERE ProgramID = @ProgramID AND VersionLabel = @OldVersionLabel
+            AND AcademicYear = @OldAcademicYear) o
+    FULL OUTER JOIN
+         (SELECT CourseCode, StudySemesterNo FROM Version_Course
+          WHERE ProgramID = @ProgramID AND VersionLabel = @NewVersionLabel
+            AND AcademicYear = @NewAcademicYear) n
+      ON o.CurseCode = n.CourseCode
+    WHERE o.CourseCode IS NULL
+       OR n.CourseCode IS NULL
+       OR o.StudySemesterNo <> n.StudySemesterNo;
+GO
+
+ -----------------------------------------------------------------------------------------------------------------
+
+CREATE FUNCTION ViewProgramCurriculumMap (@ProgramID int)
+RETURNS TABLE
+AS
+RETURN
+    SELECT om.PLOCode,
+           p.Statement AS PLOStatement,
+           om.CourseCode,
+           om.ILOCode,
+           i.Statement AS ILOStatement,
+           om.CoverageLevel,
+           om.IsAssessmentPoint,
+           om.MappingStatus
+    FROM Outcome_Mapping om
+    JOIN PLO p ON p.ProgramID = om.ProgramID AND p.PLOCode = om.PLOCode
+    JOIN ILO i ON i.CourseCode = om.CourseCode AND i.ILOCode = om.ILOCode
+    WHERE om.ProgramID = @ProgramID;
+GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE FUNCTION GetUncoveredPLOs (@ProgramID int)
+RETURNS TABLE
+AS
+RETURN
+    SELECT p.PLOCode, p.Statement
+    FROM PLO p
+    WHERE p.ProgramID = @ProgramID
+      AND NOT EXISTS (SELECT 1 FROM Outcome_Mapping om
+                      WHERE om.ProgramID = p.ProgramID
+                        AND om.PLOCode = p.PLOCode
+                        AND om.MappingStatus = 'Approved');
+GO
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE FUNCTION GetPLOCoverageSummary (@ProgramID int)
+RETURNS TABLE
+AS
+RETURN
+    SELECT p.PLOCode,
+           p.Statement,
+           COUNT(DISTINCT CASE WHEN om.CoverageLevel = 'Introduced' THEN om.CourseCode END) AS IntroducedCourses,
+           COUNT(DISTINCT CASE WHEN om.CoverageLevel = 'Reinforced' THEN om.CourseCode END) AS ReinforcedCourses,
+           COUNT(DISTINCT CASE WHEN om.CoverageLevel = 'Mastered'   THEN om.CourseCode END) AS MasteredCourses,
+           SUM(CASE WHEN om.IsAssessmentPoint = 1 THEN 1 ELSE 0 END) AS AssessmentPoints
+    FROM PLO p
+    LEFT JOIN Outcome_Mapping om
+           ON om.ProgramID = p.ProgramID
+          AND om.PLOCode = p.PLOCode
+          AND om.MappingStatus = 'Approved'
+    WHERE p.ProgramID = @ProgramID
+    GROUP BY p.PLOCode, p.Statement;
+GO
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+CREATE PROCEDURE ReviewOutcomeMapping
+    @MappingID int,
+    @MappingStatus varchar(50)
+AS
+BEGIN
+    IF @MappingStatus NOT IN ('Approved', 'Rejected')
+    BEGIN
+        PRINT 'Status must be Approved or Rejected.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Outcome_Mapping WHERE MappingID = @MappingID)
+    BEGIN
+        PRINT 'This mapping does not exist.';
+        RETURN;
+    END
+
+    UPDATE Outcome_Mapping
+    SET MappingStatus = @MappingStatus
+    WHERE MappingID = @MappingID;
+
+    PRINT 'Mapping reviewed.';
+END;
+GO
