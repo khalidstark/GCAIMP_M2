@@ -51,9 +51,16 @@ Each team member has their own branch and their own file. Nobody writes directly
    git commit -m "Add <procedure names>"
    git push origin <your-branch>
    ```
-6. **Open a Pull Request** from your branch into `main` on GitHub, then merge it.
+6. **Open a Pull Request** from your branch into `main` on GitHub. A check called **sql-check** starts automatically: it glues everyone's files and runs `Tables.sql` → `Insertions.sql` → `Procedures.sql` → `Executions.sql` on a fresh SQL Server.
+   - Green ✅: the **Merge** button unlocks. Merge it.
+   - Red ❌: the Merge button stays locked. Click **Details**, find the file and line that errored, fix it on your branch, push again. The check reruns by itself.
+   - Pushing straight to `main` is blocked, so always go through a Pull Request.
 
-### What the CI/CD does after a merge
+### What the CI/CD does
+
+**Before a merge** (`.github/workflows/check.yml`, on every Pull Request into `main`): the same glue and full run as below, but nothing is committed. `main` is protected: a Pull Request can only be merged when this check is green, and nobody can push to `main` directly.
+
+**After a merge**
 
 Every push or merge to `main` runs `.github/workflows/glue.yml`. It:
 
@@ -61,7 +68,7 @@ Every push or merge to `main` runs `.github/workflows/glue.yml`. It:
 2. Starts a fresh SQL Server 2022 container and runs `Tables.sql` → `Insertions.sql` → `Procedures.sql` → `Executions.sql`.
 3. If everything runs without errors, it commits the updated `Procedures.sql` and `Executions.sql` back to `main`.
 
-If the run fails (red ❌ in the **Actions** tab), `Procedures.sql` is **not** updated. Open the failed run, find the file and line that errored, fix it on your branch and merge again.
+If the run fails (red ❌ in the **Actions** tab), `Procedures.sql` is **not** updated. This should not happen any more, because the same run has to pass on the Pull Request first.
 
 ### Rules
 
