@@ -285,7 +285,7 @@ RETURN
     JOIN Academic_Member am ON am.MemberID = ar.DeciderID
     WHERE ar.ProposalID = @ProposalID;
 GO
-
+--------------------------------------------------------------------------------------------------------------------------------------------
 CREATE FUNCTION ViewCurriculumVersion (@ProgramID int, @VersionLabel varchar(20), @AcademicYear varchar(50))
 RETURNS TABLE
 AS
@@ -301,7 +301,7 @@ RETURN
       AND vc.VersionLabel = @VersionLabel
       AND vc.AcademicYear = @AcademicYear;
 GO
-
+----------------------------------------------------------------------------------------------------------------------------------------
 CREATE FUNCTION ViewCourseILOs (@CourseCode varchar(20))
 RETURNS TABLE
 AS
@@ -333,7 +333,7 @@ RETURN
          (SELECT CourseCode, StudySemesterNo FROM Version_Course
           WHERE ProgramID = @ProgramID AND VersionLabel = @NewVersionLabel
             AND AcademicYear = @NewAcademicYear) n
-      ON o.CurseCode = n.CourseCode
+      ON o.CourseCode = n.CourseCode
     WHERE o.CourseCode IS NULL
        OR n.CourseCode IS NULL
        OR o.StudySemesterNo <> n.StudySemesterNo;
