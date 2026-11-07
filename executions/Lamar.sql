@@ -63,3 +63,27 @@ EXEC ApproveCurriculumVersion 1, 'v4', '2027-2028';
 
 SELECT * FROM Curriculum_Version WHERE ProgramID = 1;
 GO
+
+-- =============================================
+-- Error tests
+-- =============================================
+EXEC AddCourse 'CSEN701', 'Again', 'Test', 3, 'Year 4', 'Core', 8, 'CS', NULL, NULL;
+EXEC AddCourse 'CSEN799', 'Test', 'Test', 3, 'Year 4', 'Optional', NULL, NULL, NULL, NULL;
+EXEC AddCourseRequisite 'CSEN701', 'CSEN701', 'Prerequisite';
+EXEC AddCourseRequisite 'CSEN701', 'XXXX999', 'Prerequisite';
+EXEC AddILO 'NOPE123', 'ILO1', 'Test', 'Apply';
+EXEC AddILO 'CSEN701', 'ILO1', 'Test', 'Apply';
+EXEC UpdateILO 'CSEN701', 'ILO9', 'Test', NULL;
+EXEC MapILOToPLO 'CSEN701', 'ILO1', 1, 'PLO4', 'Expert', 1;
+EXEC SubmitModificationProposal 1, 'Test', 'Test', 'Add Course', NULL, NULL, 'CSEN701', 1, 'v3', '2026-2027', NULL;
+EXEC ReviseModificationProposal 1, 'Test', NULL;
+EXEC ReviewOutcomeMapping 999, 'Approved';
+EXEC ReviewModificationProposal 2, 3, 'Approved', 'Test';
+EXEC ReviewModificationProposal 2, 10, 'Maybe', 'Test';
+EXEC DecideOnProposal 2, 2, 'Approved', 'Test';
+EXEC AddPLO 99, 'PLO1', 'Test', 'Skills';
+EXEC CreateCurriculumVersion 1, 'v4', '2027-2028', NULL, NULL, NULL;
+EXEC CreateCurriculumVersion 1, 'v5', '2028-2029', NULL, 'v9', '2020-2021';
+EXEC PlaceCourseInVersion 1, 'v4', '2027-2028', 'CSEN702', 8, 0;
+EXEC ApproveCurriculumVersion 1, 'v2', '2025-2026';
+GO
