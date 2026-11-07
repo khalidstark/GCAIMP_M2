@@ -11,8 +11,10 @@ GIU Curriculum and Academic Innovation Management Platform: SQL Server database,
 | `Procedures.sql` | All procedures glued together | **Nobody (CI generates it)** |
 | `Executions.sql` | All executions glued together | **Nobody (CI generates it)** |
 | `Procedures.pdf` | User stories split between the team | Nobody |
+| `Executions.pdf` | Executions split between the team (same split), with the milestone's execution rules | Nobody |
+| `pdfs/Executions_<Name>.pdf` | Your own part of `Executions.pdf` | Nobody |
 
-## How we work on procedures
+## How we work on procedures and executions
 
 Each team member has their own branch and their own file. Nobody writes directly in `Procedures.sql` on `main`. When you merge your branch into `main`, CI/CD glues everyone's work into the main `Procedures.sql`.
 
@@ -37,6 +39,7 @@ Each team member has their own branch and their own file. Nobody writes directly
    git pull origin main
    ```
 3. **Create your files** (first time only) and write your procedures in `procedures/<YourName>.sql` and your test calls in `executions/<YourName>.sql`.
+   - Your procedures are listed in `Procedures.pdf`, your executions in `Executions.pdf` (or `pdfs/Executions_<YourName>.pdf`): one `EXEC` per procedure and one `SELECT` per function, in the same order, using data from `Insertions.sql`.
    - Use the exact file name from the table above (e.g. `procedures/Lamar.sql`, capital first letter).
    - Put `GO` between each `CREATE PROCEDURE` / `CREATE FUNCTION`.
    - You don't need `USE GCAIMP;` at the top. CI adds it.
