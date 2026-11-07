@@ -418,3 +418,275 @@ BEGIN
     PRINT 'Mapping reviewed.';
 END;
 GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE FUNCTION ViewPendingProposals (@ProgramID int)
+RETURNS TABLE
+AS
+RETURN
+    SELECT mp.ProposalID,
+           mp.Title,
+           mp.ModificationType,
+           mp.CourseCode,
+           am.FullName AS Proposer,
+           mp.SubmissionDate
+    FROM Modification_Proposal mp
+    JOIN Academic_Member am ON am.MemberID = mp.ProposerID
+    WHERE mp.ProgramID = @ProgramID
+      AND NOT EXISTS (SELECT 1 FROM Approval_Record ar
+                      WHERE ar.ProposalID = mp.ProposalID
+                        AND ar.Decision IN ('Approved', 'Rejected')
+                        AND ar.DecisionLevel IN ('Dean', 'University'));
+GO
+
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE ReviewModificationProposal
+    @ProposalID int,
+    @ReviewerID int,
+    @Decision varchar(50),
+    @Comments varchar(1000)
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Curriculum_Reviewer WHERE MemberID = @ReviewerID)
+    BEGIN
+        PRINT 'Only a curriculum reviewer can review a proposal.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Modification_Proposal WHERE ProposalID = @ProposalID)
+    BEGIN
+        PRINT 'This proposal does not exist.';
+        RETURN;
+    END
+
+    IF @Decision NOT IN ('Approved', 'Rejected', 'Returned')
+    BEGIN
+        PRINT 'Decision must be Approved, Rejected or Returned.';
+        RETURN;
+    END
+
+    INSERT INTO Approval_Record (Decision, DecisionLevel, Comments, DeciderID, ProposalID)
+    VALUES (@Decision, 'Reviewer', @Comments, @ReviewerID, @ProposalID);
+
+    PRINT 'Review recorded.';
+END;
+GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE FUNCTION ViewCourseProposalHistory (@CourseCode varchar(20))
+RETURNS TABLE
+AS
+RETURN
+    SELECT mp.ProposalID,
+           mp.Title,
+           mp.ModificationType,
+           mp.SubmissionDate,
+           latest.Decision AS LatestDecision,
+           latest.DecisionLevel AS LatestDecisionLevel
+    FROM Modification_Proposal mp
+    OUTER APPLY (SELECT TOP 1 ar.Decision, ar.DecisionLevel
+                 FROM Approval_Record ar
+                 WHERE ar.ProposalID = mp.ProposalID
+                 ORDER BY ar.DecisionDate DESC, ar.ApprovalID DESC) latest
+    WHERE mp.CourseCode = @CourseCode;
+GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE DecideOnProposal
+    @ProposalID int,
+    @DeanID int,
+    @Decision varchar(50),
+    @Comments varchar(1000)
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Dean WHERE MemberID = @DeanID)
+    BEGIN
+        PRINT 'Only a dean can decide on a proposal.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Modification_Proposal WHERE ProposalID = @ProposalID)
+    BEGIN
+        PRINT 'This proposal does not exist.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1
+                   FROM Modification_Proposal mp
+                   JOIN Program p ON p.ProgramID = mp.ProgramID
+                   JOIN Faculty f ON f.FacultyID = p.FacultyID
+                   WHERE mp.ProposalID = @ProposalID AND f.DeanID = @DeanID)
+    BEGIN
+        PRINT 'This proposal is not in your faculty.';
+        RETURN;
+    END
+
+    IF @Decision NOT IN ('Approved', 'Rejected', 'Returned')
+    BEGIN
+        PRINT 'Decision must be Approved, Rejected or Returned.';
+        RETURN;
+    END
+
+    INSERT INTO Approval_Record (Decision, DecisionLevel, Comments, DeciderID, ProposalID)
+    VALUES (@Decision, 'Dean', @Comments, @DeanID, @ProposalID);
+
+    PRINT 'Decision recorded.';
+END;
+GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE AddPLO
+    @ProgramID int,
+    @PLOCode varchar(20),
+    @Statement varchar(1000),
+    @Category varchar(50)
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Program WHERE ProgramID = @ProgramID)
+    BEGIN
+        PRINT 'This program does not exist.';
+        RETURN;
+    END
+
+    IF EXISTS (SELECT 1 FROM PLO WHERE ProgramID = @ProgramID AND PLOCode = @PLOCode)
+    BEGIN
+        PRINT 'This PLO already exists for this program.';
+        RETURN;
+    END
+
+    INSERT INTO PLO (ProgramID, PLOCode, Statement, Category)
+    VALUES (@ProgramID, @PLOCode, @Statement, @Category);
+
+    PRINT 'PLO added.';
+END;
+GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE CreateCurriculumVersion
+    @ProgramID int,
+    @VersionLabel varchar(20),
+    @AcademicYear varchar(50),
+    @EffectivePeriod varchar(50),
+    @CopyFromVersionLabel varchar(20),
+    @CopyFromAcademicYear varchar(50)
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Program WHERE ProgramID = @ProgramID)
+    BEGIN
+        PRINT 'This program does not exist.';
+        RETURN;
+    END
+
+    IF EXISTS (SELECT 1 FROM Curriculum_Version
+               WHERE ProgramID = @ProgramID AND VersionLabel = @VersionLabel
+                 AND AcademicYear = @AcademicYear)
+    BEGIN
+        PRINT 'This curriculum version already exists.';
+        RETURN;
+    END
+
+    IF @CopyFromVersionLabel IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM Curriculum_Version
+                       WHERE ProgramID = @ProgramID AND VersionLabel = @CopyFromVersionLabel
+                         AND AcademicYear = @CopyFromAcademicYear)
+    BEGIN
+        PRINT 'The version to copy from does not exist.';
+        RETURN;
+    END
+
+    INSERT INTO Curriculum_Version (ProgramID, VersionLabel, AcademicYear, EffectivePeriod, Status)
+    VALUES (@ProgramID, @VersionLabel, @AcademicYear, @EffectivePeriod, 'Draft');
+
+    IF @CopyFromVersionLabel IS NOT NULL
+        INSERT INTO Version_Course (ProgramID, VersionLabel, AcademicYear, CourseCode, StudySemesterNo, IsMandatory)
+        SELECT @ProgramID, @VersionLabel, @AcademicYear, CourseCode, StudySemesterNo, IsMandatory
+        FROM Version_Course
+        WHERE ProgramID = @ProgramID
+          AND VersionLabel = @CopyFromVersionLabel
+          AND AcademicYear = @CopyFromAcademicYear;
+
+    PRINT 'Curriculum version created.';
+END;
+GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE PlaceCourseInVersion
+    @ProgramID int,
+    @VersionLabel varchar(20),
+    @AcademicYear varchar(50),
+    @CourseCode varchar(20),
+    @StudySemesterNo int,
+    @IsMandatory bit
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Curriculum_Version
+                   WHERE ProgramID = @ProgramID AND VersionLabel = @VersionLabel
+                     AND AcademicYear = @AcademicYear AND Status = 'Draft')
+    BEGIN
+        PRINT 'Courses can only be placed in an existing draft version.';
+        RETURN;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Course WHERE CourseCode = @CourseCode)
+    BEGIN
+        PRINT 'This course does not exist.';
+        RETURN;
+    END
+
+    IF EXISTS (SELECT 1 FROM Version_Course
+               WHERE ProgramID = @ProgramID AND VersionLabel = @VersionLabel
+                 AND AcademicYear = @AcademicYear AND CourseCode = @CourseCode)
+    BEGIN
+        UPDATE Version_Course
+        SET StudySemesterNo = @StudySemesterNo,
+            IsMandatory     = @IsMandatory
+        WHERE ProgramID = @ProgramID AND VersionLabel = @VersionLabel
+          AND AcademicYear = @AcademicYear AND CourseCode = @CourseCode;
+
+        PRINT 'Course placement updated.';
+        RETURN;
+    END
+
+    INSERT INTO Version_Course (ProgramID, VersionLabel, AcademicYear, CourseCode, StudySemesterNo, IsMandatory)
+    VALUES (@ProgramID, @VersionLabel, @AcademicYear, @CourseCode, @StudySemesterNo, @IsMandatory);
+
+    PRINT 'Course placed in version.';
+END;
+GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE ApproveCurriculumVersion
+    @ProgramID int,
+    @VersionLabel varchar(20),
+    @AcademicYear varchar(50)
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Curriculum_Version
+                   WHERE ProgramID = @ProgramID AND VersionLabel = @VersionLabel
+                     AND AcademicYear = @AcademicYear AND Status = 'Draft')
+    BEGIN
+        PRINT 'Only an existing draft version can be approved.';
+        RETURN;
+    END
+
+    UPDATE Curriculum_Version
+    SET Status = 'Archived'
+    WHERE ProgramID = @ProgramID AND Status = 'Active';
+
+    UPDATE Curriculum_Version
+    SET Status = 'Active',
+        ApprovalDate = GETDATE()
+    WHERE ProgramID = @ProgramID AND VersionLabel = @VersionLabel
+      AND AcademicYear = @AcademicYear;
+
+    PRINT 'Curriculum version approved.';
+END;
+GO

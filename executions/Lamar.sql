@@ -39,5 +39,27 @@ EXEC ReviewOutcomeMapping @MapID, 'Approved';
 
 SELECT * FROM GetUncoveredPLOs(1);
 SELECT * FROM GetPLOCoverageSummary(1);
-GO
 
+SELECT * FROM ViewPendingProposals(1);
+
+DECLARE @PropID int = (SELECT ProposalID FROM Modification_Proposal WHERE Title = 'Add Data Engineering');
+EXEC ReviewModificationProposal @PropID, 10, 'Approved', 'Good addition to the curriculum';
+
+SELECT * FROM ViewCourseProposalHistory('CSEN701');
+
+DECLARE @PropID int = (SELECT ProposalID FROM Modification_Proposal WHERE Title = 'Add Data Engineering');
+EXEC DecideOnProposal @PropID, 1, 'Approved', 'Approved for next year';
+
+SELECT * FROM ViewPendingProposals(1);
+
+EXEC AddPLO 1, 'PLO5', 'Manage and analyze large datasets', 'Skills';
+
+EXEC CreateCurriculumVersion 1, 'v4', '2027-2028', '2027-09-01 to 2028-08-31', 'v3', '2026-2027';
+EXEC PlaceCourseInVersion 1, 'v4', '2027-2028', 'CSEN701', 8, 1;
+
+SELECT * FROM CompareCurriculumVersions(1, 'v3', '2026-2027', 'v4', '2027-2028');
+
+EXEC ApproveCurriculumVersion 1, 'v4', '2027-2028';
+
+SELECT * FROM Curriculum_Version WHERE ProgramID = 1;
+GO
