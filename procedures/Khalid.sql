@@ -1,0 +1,683 @@
+CREATE FUNCTION ViewMemberInfo (@MemberID INT)
+RETURNS TABLE
+AS
+RETURN (
+    SELECT m.MemberID, m.FullName, m.UniversityIDNo, m.Email, m.Phone, m.AcademicRank,
+           m.EmploymentStatus, m.AccountStatus, m.FacultyID, f.Name AS FacultyName,
+           r.InfoType, r.InfoValue
+    FROM Academic_Member m
+    LEFT JOIN Faculty f ON f.FacultyID = m.FacultyID
+    LEFT JOIN (
+        SELECT MemberID, 'Role' AS InfoType, 'Academic Instructor' AS InfoValue FROM Academic_Instructor
+        UNION ALL
+        SELECT MemberID, 'Role', 'Teaching Assistant' FROM Teaching_Assistant
+        UNION ALL
+        SELECT MemberID, 'Role', 'Dean' FROM Dean
+        UNION ALL
+        SELECT MemberID, 'Role', 'University Management' FROM University_Management
+        UNION ALL
+        SELECT MemberID, 'Role', 'Curriculum Reviewer' FROM Curriculum_Reviewer
+        UNION ALL
+        SELECT DeanID, 'Dean Of Faculty', Name FROM Faculty WHERE DeanID IS NOT NULL
+        UNION ALL
+        SELECT MemberID, 'Access Scope', AccessScope FROM Member_Access_Scope
+    ) r ON r.MemberID = m.MemberID
+    WHERE m.MemberID = @MemberID
+);
+GO
+
+CREATE PROCEDURE AddAcademicMember
+    @FullName         VARCHAR(150),
+    @UniversityIDNo   VARCHAR(50),
+    @Email            VARCHAR(150),
+    @Phone            VARCHAR(50),
+    @AcademicRank     VARCHAR(50),
+    @EmploymentStatus VARCHAR(50),
+    @AccountStatus    VARCHAR(50),
+    @FacultyID        INT
+AS
+BEGIN
+    DECLARE @MemberID INT;
+
+    IF @AccountStatus IS NULL
+        SET @AccountStatus = 'Active';
+
+    IF @FullName IS NULL OR @FullName = ''
+        PRINT 'Error: Full name is required.';
+    ELSE IF @UniversityIDNo IS NULL OR @Email IS NULL
+        PRINT 'Error: University ID and email are required.';
+    ELSE IF EXISTS (SELECT * FROM Academic_Member WHERE UniversityIDNo = @UniversityIDNo)
+        PRINT 'Error: University ID ' + @UniversityIDNo + ' is already used by another member.';
+    ELSE IF EXISTS (SELECT * FROM Academic_Member WHERE Email = @Email)
+        PRINT 'Error: Email ' + @Email + ' is already used by another member.';
+    ELSE IF @AccountStatus NOT IN ('Active', 'Suspended', 'Deactivated')
+        PRINT 'Error: Account status must be Active, Suspended or Deactivated.';
+    ELSE IF @FacultyID IS NOT NULL AND NOT EXISTS (SELECT * FROM Faculty WHERE FacultyID = @FacultyID)
+        PRINT 'Error: Faculty ' + CAST(@FacultyID AS VARCHAR(10)) + ' does not exist.';
+    ELSE
+    BEGIN
+        INSERT INTO Academic_Member (FullName, UniversityIDNo, Email, Phone, AcademicRank,
+                                     EmploymentStatus, AccountStatus, FacultyID)
+        VALUES (@FullName, @UniversityIDNo, @Email, @Phone, @AcademicRank,
+                @EmploymentStatus, @AccountStatus, @FacultyID);
+
+        SELECT @MemberID = MAX(MemberID) FROM Academic_Member;
+        PRINT 'Member ' + @FullName + ' added, new MemberID ' + CAST(@MemberID AS VARCHAR(10)) + '.';
+    END
+END
+GO
+
+CREATE PROCEDURE UpdateMemberContactInfo
+    @MemberID INT,
+    @Email    VARCHAR(150),
+    @Phone    VARCHAR(50)
+AS
+BEGIN
+    IF @MemberID IS NULL
+        PRINT 'Error: Member ID is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF @Email IS NULL AND @Phone IS NULL
+        PRINT 'Error: Give a new email, a new phone or both.';
+    ELSE IF EXISTS (SELECT * FROM Academic_Member WHERE Email = @Email AND MemberID <> @MemberID)
+        PRINT 'Error: Email ' + @Email + ' already belongs to another member.';
+    ELSE
+    BEGIN
+        UPDATE Academic_Member
+        SET Email = ISNULL(@Email, Email),
+            Phone = ISNULL(@Phone, Phone)
+        WHERE MemberID = @MemberID;
+
+        PRINT 'Contact details of member ' + CAST(@MemberID AS VARCHAR(10)) + ' updated.';
+    END
+END
+GO
+
+CREATE PROCEDURE UpdateAccountStatus
+    @MemberID      INT,
+    @AccountStatus VARCHAR(50)
+AS
+BEGIN
+    IF @MemberID IS NULL
+        PRINT 'Error: Member ID is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF @AccountStatus IS NULL OR @AccountStatus NOT IN ('Active', 'Suspended', 'Deactivated')
+        PRINT 'Error: Account status must be Active, Suspended or Deactivated.';
+    ELSE IF EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID AND AccountStatus = @AccountStatus)
+        PRINT 'Error: The account of member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already ' + @AccountStatus + '.';
+    ELSE
+    BEGIN
+        UPDATE Academic_Member
+        SET AccountStatus = @AccountStatus
+        WHERE MemberID = @MemberID;
+
+        PRINT 'Account of member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now ' + @AccountStatus + '.';
+    END
+END
+GO
+
+CREATE PROCEDURE AssignInstructorRole
+    @MemberID       INT,
+    @ResearchArea   VARCHAR(150),
+    @OfficeLocation VARCHAR(50),
+    @TeachingLoad   INT
+AS
+BEGIN
+    IF @MemberID IS NULL
+        PRINT 'Error: Member ID is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF EXISTS (SELECT * FROM Academic_Instructor WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already an academic instructor.';
+    ELSE IF @TeachingLoad < 0
+        PRINT 'Error: Teaching load cannot be negative.';
+    ELSE
+    BEGIN
+        INSERT INTO Academic_Instructor (MemberID, ResearchArea, OfficeLocation, TeachingLoad)
+        VALUES (@MemberID, @ResearchArea, @OfficeLocation, @TeachingLoad);
+
+        PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now an academic instructor.';
+    END
+END
+GO
+
+CREATE PROCEDURE AssignTeachingAssistantRole
+    @MemberID       INT,
+    @AssistantLevel VARCHAR(50),
+    @SupervisorID   INT
+AS
+BEGIN
+    IF @MemberID IS NULL OR @SupervisorID IS NULL
+        PRINT 'Error: Member ID and supervisor ID are required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF EXISTS (SELECT * FROM Teaching_Assistant WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already a teaching assistant.';
+    ELSE IF @SupervisorID = @MemberID
+        PRINT 'Error: A teaching assistant cannot supervise themself.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Instructor WHERE MemberID = @SupervisorID)
+        PRINT 'Error: Supervisor ' + CAST(@SupervisorID AS VARCHAR(10)) + ' is not an academic instructor.';
+    ELSE
+    BEGIN
+        INSERT INTO Teaching_Assistant (MemberID, AssistantLevel, SupervisorID)
+        VALUES (@MemberID, @AssistantLevel, @SupervisorID);
+
+        PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now a teaching assistant supervised by member '
+              + CAST(@SupervisorID AS VARCHAR(10)) + '.';
+    END
+END
+GO
+
+CREATE PROCEDURE AssignDean
+    @MemberID               INT,
+    @FacultyID              INT,
+    @ApprovalAuthorityScope VARCHAR(150)
+AS
+BEGIN
+    DECLARE @OldDeanID INT;
+
+    SELECT @OldDeanID = DeanID FROM Faculty WHERE FacultyID = @FacultyID;
+
+    IF @MemberID IS NULL OR @FacultyID IS NULL
+        PRINT 'Error: Member ID and faculty ID are required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF NOT EXISTS (SELECT * FROM Faculty WHERE FacultyID = @FacultyID)
+        PRINT 'Error: Faculty ' + CAST(@FacultyID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF EXISTS (SELECT * FROM Faculty WHERE FacultyID = @FacultyID AND DeanID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already the dean of this faculty.';
+    ELSE IF EXISTS (SELECT * FROM Faculty WHERE DeanID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already the dean of another faculty.';
+    ELSE
+    BEGIN
+        IF EXISTS (SELECT * FROM Dean WHERE MemberID = @MemberID)
+            UPDATE Dean
+            SET ApprovalAuthorityScope = ISNULL(@ApprovalAuthorityScope, ApprovalAuthorityScope)
+            WHERE MemberID = @MemberID;
+        ELSE
+            INSERT INTO Dean (MemberID, ApprovalAuthorityScope)
+            VALUES (@MemberID, @ApprovalAuthorityScope);
+
+        UPDATE Faculty
+        SET DeanID = @MemberID
+        WHERE FacultyID = @FacultyID;
+
+        IF @OldDeanID IS NULL
+            PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now the dean of faculty '
+                  + CAST(@FacultyID AS VARCHAR(10)) + '.';
+        ELSE
+            PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now the dean of faculty '
+                  + CAST(@FacultyID AS VARCHAR(10)) + ' (replacing dean ' + CAST(@OldDeanID AS VARCHAR(10)) + ').';
+    END
+END
+GO
+
+CREATE PROCEDURE AssignManagementRole
+    @MemberID               INT,
+    @ManagementTitle        VARCHAR(150),
+    @DecisionAuthorityLevel VARCHAR(50),
+    @GovernanceScope        VARCHAR(150)
+AS
+BEGIN
+    IF @MemberID IS NULL
+        PRINT 'Error: Member ID is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF EXISTS (SELECT * FROM University_Management WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already in university management.';
+    ELSE
+    BEGIN
+        INSERT INTO University_Management (MemberID, ManagementTitle, DecisionAuthorityLevel, GovernanceScope)
+        VALUES (@MemberID, @ManagementTitle, @DecisionAuthorityLevel, @GovernanceScope);
+
+        PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now part of university management.';
+    END
+END
+GO
+
+CREATE PROCEDURE AssignReviewerRole
+    @MemberID             INT,
+    @ReviewDomain         VARCHAR(150),
+    @ReviewAuthorityLevel VARCHAR(50),
+    @CommitteeMembership  VARCHAR(150)
+AS
+BEGIN
+    IF @MemberID IS NULL
+        PRINT 'Error: Member ID is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF EXISTS (SELECT * FROM Curriculum_Reviewer WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already a curriculum reviewer.';
+    ELSE
+    BEGIN
+        INSERT INTO Curriculum_Reviewer (MemberID, ReviewDomain, ReviewAuthorityLevel)
+        VALUES (@MemberID, @ReviewDomain, @ReviewAuthorityLevel);
+
+        IF @CommitteeMembership IS NULL OR @CommitteeMembership = ''
+            PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now a curriculum reviewer (no committee recorded).';
+        ELSE
+        BEGIN
+            INSERT INTO Reviewer_Committee (MemberID, CommitteeMembership)
+            VALUES (@MemberID, @CommitteeMembership);
+
+            PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' is now a curriculum reviewer (committee membership: '
+                  + @CommitteeMembership + ').';
+        END
+    END
+END
+GO
+
+CREATE PROCEDURE GrantAccessScope
+    @MemberID    INT,
+    @AccessScope VARCHAR(50)
+AS
+BEGIN
+    IF @MemberID IS NULL
+        PRINT 'Error: Member ID is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF @AccessScope IS NULL OR @AccessScope = ''
+        PRINT 'Error: Access scope is required.';
+    ELSE IF EXISTS (SELECT * FROM Member_Access_Scope WHERE MemberID = @MemberID AND AccessScope = @AccessScope)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' already has the scope ''' + @AccessScope + '''.';
+    ELSE
+    BEGIN
+        INSERT INTO Member_Access_Scope (MemberID, AccessScope)
+        VALUES (@MemberID, @AccessScope);
+
+        PRINT 'Scope ''' + @AccessScope + ''' granted to member ' + CAST(@MemberID AS VARCHAR(10)) + '.';
+    END
+END
+GO
+
+CREATE PROCEDURE RevokeAccessScope
+    @MemberID    INT,
+    @AccessScope VARCHAR(50)
+AS
+BEGIN
+    IF @MemberID IS NULL
+        PRINT 'Error: Member ID is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF @AccessScope IS NULL
+        PRINT 'Error: Access scope is required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Member_Access_Scope WHERE MemberID = @MemberID AND AccessScope = @AccessScope)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' does not have the scope ''' + @AccessScope + '''.';
+    ELSE
+    BEGIN
+        DELETE FROM Member_Access_Scope
+        WHERE MemberID = @MemberID AND AccessScope = @AccessScope;
+
+        PRINT 'Scope ''' + @AccessScope + ''' revoked from member ' + CAST(@MemberID AS VARCHAR(10)) + '.';
+    END
+END
+GO
+
+CREATE PROCEDURE AddFaculty
+    @Name              VARCHAR(150),
+    @Description       VARCHAR(1000),
+    @EstablishmentDate DATE,
+    @DeanID            INT
+AS
+BEGIN
+    DECLARE @FacultyID INT;
+
+    IF @Name IS NULL OR @Name = ''
+        PRINT 'Error: Faculty name is required.';
+    ELSE IF EXISTS (SELECT * FROM Faculty WHERE Name = @Name)
+        PRINT 'Error: A faculty called ' + @Name + ' already exists.';
+    ELSE IF @DeanID IS NOT NULL AND NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @DeanID)
+        PRINT 'Error: Member ' + CAST(@DeanID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF @DeanID IS NOT NULL AND EXISTS (SELECT * FROM Faculty WHERE DeanID = @DeanID)
+        PRINT 'Error: Member ' + CAST(@DeanID AS VARCHAR(10)) + ' is already the dean of another faculty.';
+    ELSE
+    BEGIN
+        IF @DeanID IS NOT NULL AND NOT EXISTS (SELECT * FROM Dean WHERE MemberID = @DeanID)
+            INSERT INTO Dean (MemberID, ApprovalAuthorityScope)
+            VALUES (@DeanID, 'Faculty proposals and initiatives');
+
+        INSERT INTO Faculty (Name, Description, EstablishmentDate, DeanID)
+        VALUES (@Name, @Description, @EstablishmentDate, @DeanID);
+
+        SELECT @FacultyID = MAX(FacultyID) FROM Faculty;
+
+        IF @DeanID IS NULL
+            PRINT 'Faculty ' + @Name + ' added, new FacultyID ' + CAST(@FacultyID AS VARCHAR(10)) + '.';
+        ELSE
+            PRINT 'Faculty ' + @Name + ' added, new FacultyID ' + CAST(@FacultyID AS VARCHAR(10))
+                  + ' and dean member ' + CAST(@DeanID AS VARCHAR(10)) + '.';
+    END
+END
+GO
+
+CREATE PROCEDURE RecordDeanTerm
+    @DeanID     INT,
+    @SemesterID INT
+AS
+BEGIN
+    IF @DeanID IS NULL OR @SemesterID IS NULL
+        PRINT 'Error: Dean ID and semester ID are required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Dean WHERE MemberID = @DeanID)
+        PRINT 'Error: Member ' + CAST(@DeanID AS VARCHAR(10)) + ' is not a dean.';
+    ELSE IF NOT EXISTS (SELECT * FROM Semester WHERE SemesterID = @SemesterID)
+        PRINT 'Error: Semester ' + CAST(@SemesterID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF EXISTS (SELECT * FROM Dean_Term WHERE DeanID = @DeanID AND SemesterID = @SemesterID)
+        PRINT 'Error: Semester ' + CAST(@SemesterID AS VARCHAR(10)) + ' is already recorded for dean '
+              + CAST(@DeanID AS VARCHAR(10)) + '.';
+    ELSE
+    BEGIN
+        INSERT INTO Dean_Term (DeanID, SemesterID)
+        VALUES (@DeanID, @SemesterID);
+
+        PRINT 'Semester ' + CAST(@SemesterID AS VARCHAR(10)) + ' recorded as a term of dean '
+              + CAST(@DeanID AS VARCHAR(10)) + '.';
+    END
+END
+GO
+
+CREATE FUNCTION ViewAuditLog (@StartDate DATE, @EndDate DATE)
+RETURNS TABLE
+AS
+RETURN (
+    SELECT l.LogID,
+           l.ActionType,
+           l.ActorID,
+           m.FullName AS ActorName,
+           CASE WHEN l.ProposalID   IS NOT NULL THEN 'Proposal'
+                WHEN l.ApprovalID   IS NOT NULL THEN 'Approval'
+                WHEN l.InitiativeID IS NOT NULL THEN 'Initiative'
+                WHEN l.AssessmentID IS NOT NULL THEN 'Assessment'
+                ELSE 'Evidence' END AS ItemType,
+           CASE WHEN l.ProposalID   IS NOT NULL THEN l.ProposalID
+                WHEN l.ApprovalID   IS NOT NULL THEN l.ApprovalID
+                WHEN l.InitiativeID IS NOT NULL THEN l.InitiativeID
+                WHEN l.AssessmentID IS NOT NULL THEN l.AssessmentID
+                ELSE l.EvidenceID END AS ItemID,
+           l.LoggedAt,
+           l.ChangeSummary
+    FROM Audit_Log l
+    JOIN Academic_Member m ON m.MemberID = l.ActorID
+    WHERE l.LoggedAt >= @StartDate AND l.LoggedAt < DATEADD(DAY, 1, @EndDate)
+);
+GO
+
+CREATE FUNCTION GetFacultyMemberStats ()
+RETURNS TABLE
+AS
+RETURN (
+    SELECT f.Name AS FacultyName,
+           r.Role,
+           COUNT(*) AS NumberOfMembers
+    FROM (
+        SELECT ai.MemberID, 'Academic Instructor' AS Role, m.FacultyID
+        FROM Academic_Instructor ai JOIN Academic_Member m ON m.MemberID = ai.MemberID
+        UNION ALL
+        SELECT ta.MemberID, 'Teaching Assistant', m.FacultyID
+        FROM Teaching_Assistant ta JOIN Academic_Member m ON m.MemberID = ta.MemberID
+        UNION ALL
+        SELECT DeanID, 'Dean', FacultyID
+        FROM Faculty WHERE DeanID IS NOT NULL
+        UNION ALL
+        SELECT d.MemberID, 'Dean', m.FacultyID
+        FROM Dean d JOIN Academic_Member m ON m.MemberID = d.MemberID
+        WHERE d.MemberID NOT IN (SELECT DeanID FROM Faculty WHERE DeanID IS NOT NULL)
+        UNION ALL
+        SELECT um.MemberID, 'University Management', m.FacultyID
+        FROM University_Management um JOIN Academic_Member m ON m.MemberID = um.MemberID
+        UNION ALL
+        SELECT cr.MemberID, 'Curriculum Reviewer', m.FacultyID
+        FROM Curriculum_Reviewer cr JOIN Academic_Member m ON m.MemberID = cr.MemberID
+        UNION ALL
+        SELECT MemberID, 'No Role', FacultyID FROM Academic_Member
+        WHERE MemberID NOT IN (SELECT MemberID FROM Academic_Instructor)
+          AND MemberID NOT IN (SELECT MemberID FROM Teaching_Assistant)
+          AND MemberID NOT IN (SELECT MemberID FROM Dean)
+          AND MemberID NOT IN (SELECT MemberID FROM University_Management)
+          AND MemberID NOT IN (SELECT MemberID FROM Curriculum_Reviewer)
+    ) r
+    LEFT JOIN Faculty f ON f.FacultyID = r.FacultyID
+    GROUP BY f.Name, r.Role
+);
+GO
+
+CREATE FUNCTION ViewMySupervisor (@TAID INT)
+RETURNS TABLE
+AS
+RETURN (
+    SELECT ai.MemberID AS SupervisorID,
+           m.FullName AS SupervisorName,
+           m.Email,
+           ai.OfficeLocation
+    FROM Teaching_Assistant ta
+    JOIN Academic_Instructor ai ON ai.MemberID = ta.SupervisorID
+    JOIN Academic_Member m ON m.MemberID = ai.MemberID
+    WHERE ta.MemberID = @TAID
+);
+GO
+
+CREATE PROCEDURE BroadcastNotification
+    @MessageContent VARCHAR(1000),
+    @Urgency        VARCHAR(50),
+    @Category       VARCHAR(50),
+    @TargetRole     VARCHAR(50)
+AS
+BEGIN
+    DECLARE @Count INT;
+    DECLARE @NotificationID INT;
+
+    SELECT @Count = COUNT(*)
+    FROM (
+        SELECT MemberID FROM Academic_Instructor WHERE @TargetRole = 'Academic Instructor'
+        UNION ALL
+        SELECT MemberID FROM Teaching_Assistant WHERE @TargetRole = 'Teaching Assistant'
+        UNION ALL
+        SELECT MemberID FROM Dean WHERE @TargetRole = 'Dean'
+        UNION ALL
+        SELECT MemberID FROM University_Management WHERE @TargetRole = 'University Management'
+        UNION ALL
+        SELECT MemberID FROM Curriculum_Reviewer WHERE @TargetRole = 'Curriculum Reviewer'
+    ) t;
+
+    IF @MessageContent IS NULL OR @MessageContent = ''
+        PRINT 'Error: The message cannot be empty.';
+    ELSE IF @Urgency IS NULL OR @Urgency NOT IN ('Low', 'Medium', 'High')
+        PRINT 'Error: Urgency must be Low, Medium or High.';
+    ELSE IF @TargetRole IS NULL OR @TargetRole NOT IN ('Academic Instructor', 'Teaching Assistant', 'Dean',
+                                                       'University Management', 'Curriculum Reviewer')
+        PRINT 'Error: Target role must be Academic Instructor, Teaching Assistant, Dean, University Management or Curriculum Reviewer.';
+    ELSE IF @Count = 0
+        PRINT 'Error: No member holds the role ' + @TargetRole + '.';
+    ELSE
+    BEGIN
+        INSERT INTO Notification (MessageContent, CreatedAt, Urgency, Category)
+        VALUES (@MessageContent, GETDATE(), @Urgency, @Category);
+
+        SELECT @NotificationID = MAX(NotificationID) FROM Notification;
+
+        INSERT INTO Notification_Recipient (NotificationID, MemberID, ReadStatus)
+        SELECT @NotificationID, t.MemberID, 0
+        FROM (
+            SELECT MemberID FROM Academic_Instructor WHERE @TargetRole = 'Academic Instructor'
+            UNION ALL
+            SELECT MemberID FROM Teaching_Assistant WHERE @TargetRole = 'Teaching Assistant'
+            UNION ALL
+            SELECT MemberID FROM Dean WHERE @TargetRole = 'Dean'
+            UNION ALL
+            SELECT MemberID FROM University_Management WHERE @TargetRole = 'University Management'
+            UNION ALL
+            SELECT MemberID FROM Curriculum_Reviewer WHERE @TargetRole = 'Curriculum Reviewer'
+        ) t;
+
+        PRINT 'Notification ' + CAST(@NotificationID AS VARCHAR(10)) + ' sent to '
+              + CAST(@Count AS VARCHAR(10)) + ' member(s) holding the role ' + @TargetRole + '.';
+    END
+END
+GO
+
+CREATE FUNCTION ViewItemAuditTrail (@ItemType VARCHAR(20), @ItemID INT)
+RETURNS TABLE
+AS
+RETURN (
+    SELECT l.LogID,
+           l.ActionType,
+           l.ActorID,
+           m.FullName AS ActorName,
+           l.LoggedAt,
+           l.ChangeSummary
+    FROM Audit_Log l
+    JOIN Academic_Member m ON m.MemberID = l.ActorID
+    WHERE (@ItemType = 'Proposal'   AND l.ProposalID   = @ItemID)
+       OR (@ItemType = 'Initiative' AND l.InitiativeID = @ItemID)
+       OR (@ItemType = 'Approval'   AND l.ApprovalID   = @ItemID)
+       OR (@ItemType = 'Assessment' AND l.AssessmentID = @ItemID)
+       OR (@ItemType = 'Evidence'   AND l.EvidenceID   = @ItemID)
+       OR (@ItemType = 'Proposal'   AND l.ApprovalID IN (SELECT ApprovalID FROM Approval_Record WHERE ProposalID = @ItemID))
+       OR (@ItemType = 'Initiative' AND l.ApprovalID IN (SELECT ApprovalID FROM Approval_Record WHERE InitiativeID = @ItemID))
+);
+GO
+
+CREATE FUNCTION ViewMyProfile (@MemberID INT)
+RETURNS TABLE
+AS
+RETURN (
+    SELECT * FROM dbo.ViewMemberInfo(@MemberID)
+);
+GO
+
+CREATE FUNCTION ViewMyNotifications (@MemberID INT, @UnreadOnly BIT)
+RETURNS TABLE
+AS
+RETURN (
+    SELECT n.NotificationID,
+           n.MessageContent,
+           n.CreatedAt,
+           n.Urgency,
+           n.Category,
+           r.ReadStatus
+    FROM Notification_Recipient r
+    JOIN Notification n ON n.NotificationID = r.NotificationID
+    WHERE r.MemberID = @MemberID
+      AND (@UnreadOnly IS NULL OR @UnreadOnly = 0 OR r.ReadStatus = 0)
+);
+GO
+
+CREATE FUNCTION GetUnreadNotificationCount (@MemberID INT)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @Count INT;
+
+    IF EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
+        SELECT @Count = COUNT(*)
+        FROM Notification_Recipient
+        WHERE MemberID = @MemberID AND ReadStatus = 0;
+
+    RETURN @Count;
+END
+GO
+
+CREATE PROCEDURE MarkNotificationRead
+    @NotificationID INT,
+    @MemberID       INT
+AS
+BEGIN
+    IF @NotificationID IS NULL OR @MemberID IS NULL
+        PRINT 'Error: Notification ID and member ID are required.';
+    ELSE IF NOT EXISTS (SELECT * FROM Notification_Recipient WHERE NotificationID = @NotificationID AND MemberID = @MemberID)
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' did not receive notification '
+              + CAST(@NotificationID AS VARCHAR(10)) + '.';
+    ELSE IF EXISTS (SELECT * FROM Notification_Recipient WHERE NotificationID = @NotificationID AND MemberID = @MemberID AND ReadStatus = 1)
+        PRINT 'Error: Notification ' + CAST(@NotificationID AS VARCHAR(10)) + ' is already marked as read.';
+    ELSE
+    BEGIN
+        UPDATE Notification_Recipient
+        SET ReadStatus = 1
+        WHERE NotificationID = @NotificationID AND MemberID = @MemberID;
+
+        PRINT 'Notification ' + CAST(@NotificationID AS VARCHAR(10)) + ' marked as read for member '
+              + CAST(@MemberID AS VARCHAR(10)) + '.';
+    END
+END
+GO
+
+CREATE PROCEDURE NotifyApprovalDecision
+    @MemberID INT,
+    @ItemType VARCHAR(20),
+    @ItemID   INT,
+    @Decision VARCHAR(50)
+AS
+BEGIN
+    DECLARE @Title VARCHAR(150);
+    DECLARE @LastDecision VARCHAR(50);
+    DECLARE @LastLevel VARCHAR(50);
+    DECLARE @Urgency VARCHAR(50);
+    DECLARE @Message VARCHAR(1000);
+    DECLARE @NotificationID INT;
+
+    IF @ItemType = 'Proposal'
+    BEGIN
+        SELECT @Title = Title FROM Modification_Proposal
+        WHERE ProposalID = @ItemID AND ProposerID = @MemberID;
+
+        SELECT @LastDecision = Decision, @LastLevel = DecisionLevel
+        FROM Approval_Record
+        WHERE ApprovalID = (SELECT MAX(ApprovalID) FROM Approval_Record
+                            WHERE ProposalID = @ItemID
+                              AND DecisionDate = (SELECT MAX(DecisionDate) FROM Approval_Record
+                                                  WHERE ProposalID = @ItemID));
+    END
+    ELSE
+    BEGIN
+        SELECT @Title = Title FROM Innovation_Initiative
+        WHERE InitiativeID = @ItemID AND SubmitterID = @MemberID;
+
+        SELECT @LastDecision = Decision, @LastLevel = DecisionLevel
+        FROM Approval_Record
+        WHERE ApprovalID = (SELECT MAX(ApprovalID) FROM Approval_Record
+                            WHERE InitiativeID = @ItemID
+                              AND DecisionDate = (SELECT MAX(DecisionDate) FROM Approval_Record
+                                                  WHERE InitiativeID = @ItemID));
+    END
+
+    IF @ItemType IS NULL OR @ItemType NOT IN ('Proposal', 'Initiative')
+        PRINT 'Error: Item type must be Proposal or Initiative.';
+    ELSE IF @Decision IS NULL OR @Decision NOT IN ('Approved', 'Rejected', 'Returned', 'Escalated')
+        PRINT 'Error: Decision must be Approved, Rejected, Returned or Escalated.';
+    ELSE IF @ItemID IS NULL OR @MemberID IS NULL
+        PRINT 'Error: Member ID and item ID are required.';
+    ELSE IF @ItemType = 'Proposal' AND NOT EXISTS (SELECT * FROM Modification_Proposal WHERE ProposalID = @ItemID)
+        PRINT 'Error: Proposal ' + CAST(@ItemID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF @ItemType = 'Initiative' AND NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @ItemID)
+        PRINT 'Error: Initiative ' + CAST(@ItemID AS VARCHAR(10)) + ' does not exist.';
+    ELSE IF @Title IS NULL
+        PRINT 'Error: Member ' + CAST(@MemberID AS VARCHAR(10)) + ' did not submit '
+              + @ItemType + ' ' + CAST(@ItemID AS VARCHAR(10)) + '.';
+    ELSE IF @LastDecision IS NULL
+        PRINT 'Error: No decision has been made on ' + @ItemType + ' ' + CAST(@ItemID AS VARCHAR(10)) + ' yet.';
+    ELSE IF @LastDecision <> @Decision
+        PRINT 'Error: The latest decision on ' + @ItemType + ' ' + CAST(@ItemID AS VARCHAR(10))
+              + ' is ' + @LastDecision + ', not ' + @Decision + '.';
+    ELSE
+    BEGIN
+        IF @Decision = 'Approved'
+            SET @Urgency = 'Medium';
+        ELSE
+            SET @Urgency = 'High';
+
+        SET @Message = 'Your ' + @ItemType + ' "' + @Title + '" was ' + @Decision
+                       + ' at ' + @LastLevel + ' level';
+
+        INSERT INTO Notification (MessageContent, CreatedAt, Urgency, Category)
+        VALUES (@Message, GETDATE(), @Urgency, 'Approval');
+
+        SELECT @NotificationID = MAX(NotificationID) FROM Notification;
+
+        INSERT INTO Notification_Recipient (NotificationID, MemberID, ReadStatus)
+        VALUES (@NotificationID, @MemberID, 0);
+
+        PRINT 'Notification ' + CAST(@NotificationID AS VARCHAR(10)) + ' sent to member '
+              + CAST(@MemberID AS VARCHAR(10)) + ': ' + @Message;
+    END
+END
+GO
