@@ -13,6 +13,8 @@ GIU Curriculum and Academic Innovation Management Platform: SQL Server database,
 | `Procedures.pdf` | User stories split between the team | Nobody |
 | `Executions.pdf` | Executions split between the team (same split), with the milestone's execution rules | Nobody |
 | `pdfs/Executions_<Name>.pdf` | Your own part of `Executions.pdf` | Nobody |
+| `GCAIMP_Reference_Answers.pdf` | Reference answers: every procedure, function and execution, per person | Nobody |
+| `pdfs/Reference_Executions_<Name>.pdf` | Reference executions for your part, to check your own calls | Nobody |
 
 ## How we work on procedures and executions
 
