@@ -25,7 +25,7 @@ Each team member has their own branch and their own file. Nobody writes directly
 | Khalid | `khalid` | `procedures/Khalid.sql` | `executions/Khalid.sql` |
 | Lamar | `lamar` | `procedures/Lamar.sql` | `executions/Lamar.sql` |
 | Jomana | `jomana` | `procedures/Jomana.sql` | `executions/Jomana.sql` |
-| Abdallah | `abdallah` | `procedures/Abdallah.sql` | `executions/Abdallah.sql` |
+| Abdullah | `abdullah` | `procedures/Abdullah.sql` | `executions/Abdullah.sql` |
 | Rawan | `rawan` | `procedures/Rawan.sql` | `executions/Rawan.sql` |
 
 ### Steps
@@ -66,7 +66,7 @@ Each team member has their own branch and their own file. Nobody writes directly
 
 Every push or merge to `main` runs `.github/workflows/glue.yml`. It:
 
-1. Glues every `procedures/*.sql` file into `Procedures.sql` (order: Khalid, Lamar, Jomana, Abdallah, Rawan, then any other file), and the same for `executions/*.sql` → `Executions.sql`.
+1. Glues every `procedures/*.sql` file into `Procedures.sql` (order: Khalid, Lamar, Jomana, Abdullah, Rawan, then any other file), and the same for `executions/*.sql` → `Executions.sql`.
 2. Starts a fresh SQL Server 2022 container and runs `Tables.sql` → `Insertions.sql` → `Procedures.sql` → `Executions.sql`.
 3. If everything runs without errors, it commits the updated `Procedures.sql` and `Executions.sql` back to `main`.
 
