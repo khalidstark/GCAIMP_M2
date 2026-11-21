@@ -1,4 +1,3 @@
--- 2.13) RegisterInnovationInitiative Stored procedure
 CREATE PROCEDURE RegisterInnovationInitiative
 @SubmitterID INT, @FacultyID INT, @Title VARCHAR(150), @Description VARCHAR(1000), @Motivation VARCHAR(1000),
 @CourseCode VARCHAR(20), @SemesterID INT, @SectionID VARCHAR(20), @TargetStartSemesterID INT,
@@ -12,24 +11,24 @@ BEGIN
         PRINT 'Error: the submitting member does not exist.'
     ELSE IF NOT EXISTS (SELECT * FROM Faculty WHERE FacultyID = @FacultyID)
         PRINT 'Error: the faculty does not exist.'
-    ELSE IF NOT EXISTS (SELECT * FROM Course_Offering WHERE CourseCode = @CourseCode AND SemesterID = @SemesterID 
+    ELSE IF NOT EXISTS (SELECT * FROM Course_Offering WHERE CourseCode = @CourseCode AND SemesterID = @SemesterID
 AND SectionID = @SectionID)
         PRINT 'Error: this course offering (course, semester, section) does not exist.'
     ELSE IF NOT EXISTS (SELECT * FROM Semester WHERE SemesterID = @TargetStartSemesterID)
         PRINT 'Error: the target start semester does not exist.'
-    ELSE IF @AssessmentID IS NOT NULL AND NOT EXISTS (SELECT * FROM Outcome_Assessment WHERE AssessmentID = 
+    ELSE IF @AssessmentID IS NOT NULL AND NOT EXISTS (SELECT * FROM Outcome_Assessment WHERE AssessmentID =
 @AssessmentID)
         PRINT 'Error: assessment ' + CAST(@AssessmentID AS VARCHAR(10)) + ' does not exist.'
     ELSE IF @ImplementationDeadline < CAST(GETDATE() AS DATE)
         PRINT 'Error: the implementation deadline cannot be in the past.'
     ELSE
     BEGIN
-        INSERT INTO Innovation_Initiative (Title, Description, Motivation, RegistrationDate, 
+        INSERT INTO Innovation_Initiative (Title, Description, Motivation, RegistrationDate,
 ImplementationDeadline, Status,
-                                           CourseCode, SemesterID, SectionID, FacultyID, SubmitterID, 
+                                           CourseCode, SemesterID, SectionID, FacultyID, SubmitterID,
 TargetStartSemesterID, AssessmentID)
         VALUES (@Title, @Description, @Motivation, CAST(GETDATE() AS DATE), @ImplementationDeadline, 'Draft',
-                @CourseCode, @SemesterID, @SectionID, @FacultyID, @SubmitterID, @TargetStartSemesterID, 
+                @CourseCode, @SemesterID, @SectionID, @FacultyID, @SubmitterID, @TargetStartSemesterID,
 @AssessmentID)
         SELECT @InitiativeID = MAX(InitiativeID) FROM Innovation_Initiative
         INSERT INTO Audit_Log (ActionType, ChangeSummary, ActorID, InitiativeID)
@@ -39,7 +38,6 @@ TargetStartSemesterID, AssessmentID)
 END
 GO
 
--- 2.18) AssignInitiativeMember Stored procedure
 CREATE PROCEDURE AssignInitiativeMember
 @InitiativeID INT, @MemberID INT, @Role VARCHAR(50)
 AS
@@ -53,20 +51,19 @@ BEGIN
     ELSE IF @Role = 'Supporting TA' AND NOT EXISTS (SELECT * FROM Teaching_Assistant WHERE MemberID = @MemberID)
         PRINT 'Error: member ' + CAST(@MemberID AS VARCHAR(10)) + ' is not a teaching assistant.'
     ELSE IF EXISTS (SELECT * FROM Initiative_Member WHERE InitiativeID = @InitiativeID AND MemberID = @MemberID)
-        PRINT 'Error: member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already assigned to initiative ' + 
+        PRINT 'Error: member ' + CAST(@MemberID AS VARCHAR(10)) + ' is already assigned to initiative ' +
 CAST(@InitiativeID AS VARCHAR(10)) + '.'
     ELSE
     BEGIN
         INSERT INTO Initiative_Member (InitiativeID, MemberID, Role)
         VALUES (@InitiativeID, @MemberID, @Role)
-        PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' assigned to initiative ' + CAST(@InitiativeID AS 
+        PRINT 'Member ' + CAST(@MemberID AS VARCHAR(10)) + ' assigned to initiative ' + CAST(@InitiativeID AS
 VARCHAR(10)) + ' as ' + @Role + '.'
 
     END
 END
 GO
 
--- 2.20) AddMilestone Stored procedure
 CREATE PROCEDURE AddMilestone
 @InitiativeID INT, @Title VARCHAR(150), @Description VARCHAR(1000), @DueDate DATE
 AS
@@ -87,20 +84,19 @@ BEGIN
             SET @SeqNo = @SeqNo + 1
         INSERT INTO Milestone (InitiativeID, SeqNo, Title, Description, DueDate, CompletionDate, Status)
         VALUES (@InitiativeID, @SeqNo, @Title, @Description, @DueDate, NULL, 'Pending')
-        PRINT 'Milestone added to initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + '. New SeqNo = ' + 
+        PRINT 'Milestone added to initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + '. New SeqNo = ' +
 CAST(@SeqNo AS VARCHAR(10))
     END
 END
 GO
 
--- 2.21) CompleteMilestone Stored procedure
 CREATE PROCEDURE CompleteMilestone
 @InitiativeID INT, @SeqNo INT, @CompletionDate DATE
 AS
 BEGIN
     IF NOT EXISTS (SELECT * FROM Milestone WHERE InitiativeID = @InitiativeID AND SeqNo = @SeqNo)
         PRINT 'Error: this milestone does not exist.'
-    ELSE IF EXISTS (SELECT * FROM Milestone WHERE InitiativeID = @InitiativeID AND SeqNo = @SeqNo AND Status = 
+    ELSE IF EXISTS (SELECT * FROM Milestone WHERE InitiativeID = @InitiativeID AND SeqNo = @SeqNo AND Status =
 'Completed')
         PRINT 'Error: this milestone is already completed.'
     ELSE IF @CompletionDate IS NULL OR @CompletionDate > CAST(GETDATE() AS DATE)
@@ -116,7 +112,6 @@ BEGIN
 END
 GO
 
--- 2.25) RequestInitiativeApproval Stored procedure
 CREATE PROCEDURE RequestInitiativeApproval
 @InitiativeID INT, @MemberID INT
 AS
@@ -126,13 +121,12 @@ BEGIN
         PRINT 'Error: this initiative does not exist.'
     ELSE IF NOT EXISTS (SELECT * FROM Academic_Member WHERE MemberID = @MemberID)
         PRINT 'Error: this member does not exist.'
-    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND SubmitterID = 
+    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND SubmitterID =
 @MemberID)
-        AND NOT EXISTS (SELECT * FROM Initiative_Member WHERE InitiativeID = @InitiativeID AND MemberID = 
+        AND NOT EXISTS (SELECT * FROM Initiative_Member WHERE InitiativeID = @InitiativeID AND MemberID =
 @MemberID)
-        PRINT 'Error: member ' + CAST(@MemberID AS VARCHAR(10)) + ' did not submit and is not assigned to this 
-initiative.'
-    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND Status IN 
+        PRINT 'Error: member ' + CAST(@MemberID AS VARCHAR(10)) + ' did not submit and is not assigned to this initiative.'
+    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND Status IN
 ('Draft', 'Returned'))
         PRINT 'Error: only a Draft or Returned initiative can be sent for approval.'
     ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative I JOIN Faculty F ON F.FacultyID = I.FacultyID
@@ -149,28 +143,26 @@ initiative.'
         SET Status = 'Pending Approval'
         WHERE InitiativeID = @InitiativeID
         INSERT INTO Audit_Log (ActionType, ChangeSummary, ActorID, InitiativeID)
-        VALUES ('Update', 'Approval requested for initiative ' + CAST(@InitiativeID AS VARCHAR(10)), @MemberID, 
+        VALUES ('Update', 'Approval requested for initiative ' + CAST(@InitiativeID AS VARCHAR(10)), @MemberID,
 @InitiativeID)
-        PRINT 'Initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + ' is now Pending Approval by Dean ' + @DeanName 
+        PRINT 'Initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + ' is now Pending Approval by Dean ' + @DeanName
 + '.'
     END
 END
 GO
 
--- 2.26) ViewInitiativeProgress Function
 CREATE FUNCTION ViewInitiativeProgress (@InitiativeID INT)
 RETURNS TABLE
 AS
 RETURN (
     SELECT SeqNo, Title, DueDate, CompletionDate, Status,
-           CASE WHEN DueDate < CAST(GETDATE() AS DATE) AND Status <> 'Completed' THEN 'Yes' ELSE 'No' END AS 
+           CASE WHEN DueDate < CAST(GETDATE() AS DATE) AND Status <> 'Completed' THEN 'Yes' ELSE 'No' END AS
 IsOverdue
     FROM Milestone
     WHERE InitiativeID = @InitiativeID
 )
 GO
 
--- 2.27) CalculateInitiativeCompletion Function
 CREATE FUNCTION CalculateInitiativeCompletion (@InitiativeID INT)
 RETURNS DECIMAL(5,2)
 AS
@@ -191,7 +183,6 @@ BEGIN
 END
 GO
 
--- 3.6) UpdateMilestoneStatus Stored procedure
 CREATE PROCEDURE UpdateMilestoneStatus
 @InitiativeID INT, @SeqNo INT, @Status VARCHAR(50)
 AS
@@ -221,7 +212,6 @@ BEGIN
 END
 GO
 
--- 5.1) ViewFacultyPendingApprovals Function
 CREATE FUNCTION ViewFacultyPendingApprovals (@DeanID INT)
 RETURNS TABLE
 AS
@@ -250,7 +240,6 @@ RETURN (
 )
 GO
 
--- 5.3) DecideOnInitiative Stored procedure
 CREATE PROCEDURE DecideOnInitiative
 @InitiativeID INT, @DeanID INT, @Decision VARCHAR(50), @Comments VARCHAR(1000)
 AS
@@ -263,12 +252,12 @@ BEGIN
         PRINT 'Error: this member is not the dean of the initiative''s faculty.'
     ELSE IF @Decision IS NULL OR @Decision NOT IN ('Approved', 'Rejected', 'Returned')
         PRINT 'Error: decision must be Approved, Rejected or Returned.'
-    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND Status = 
+    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND Status =
 'Pending Approval')
         PRINT 'Error: initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + ' is not pending approval.'
     ELSE
     BEGIN
-        INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID, 
+        INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID,
 InitiativeID)
         VALUES (@Decision, 'Dean', GETDATE(), @Comments, @DeanID, NULL, @InitiativeID)
         SELECT @ApprovalID = MAX(ApprovalID) FROM Approval_Record
@@ -276,14 +265,13 @@ InitiativeID)
         SET Status = @Decision
         WHERE InitiativeID = @InitiativeID
         INSERT INTO Audit_Log (ActionType, ChangeSummary, ActorID, ApprovalID)
-        VALUES ('Create', 'Dean decision ' + @Decision + ' on initiative ' + CAST(@InitiativeID AS VARCHAR(10)), 
+        VALUES ('Create', 'Dean decision ' + @Decision + ' on initiative ' + CAST(@InitiativeID AS VARCHAR(10)),
 @DeanID, @ApprovalID)
         PRINT 'Initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + ' was ' + @Decision + ' by the dean.'
     END
 END
 GO
 
--- 5.4) EscalateToUniversity Stored procedure
 CREATE PROCEDURE EscalateToUniversity
 @InitiativeID INT, @DeanID INT, @Comments VARCHAR(1000)
 AS
@@ -294,13 +282,12 @@ BEGIN
     ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative I JOIN Faculty F ON F.FacultyID = I.FacultyID
                         WHERE I.InitiativeID = @InitiativeID AND F.DeanID = @DeanID)
         PRINT 'Error: this member is not the dean of the initiative''s faculty.'
-    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND Status = 
+    ELSE IF NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = @InitiativeID AND Status =
 'Pending Approval')
-        PRINT 'Error: initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + ' is not pending approval, so it cannot 
-be escalated.'
+        PRINT 'Error: initiative ' + CAST(@InitiativeID AS VARCHAR(10)) + ' is not pending approval, so it cannot be escalated.'
     ELSE
     BEGIN
-        INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID, 
+        INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID,
 InitiativeID)
         VALUES ('Escalated', 'Dean', GETDATE(), @Comments, @DeanID, NULL, @InitiativeID)
         SELECT @ApprovalID = MAX(ApprovalID) FROM Approval_Record
@@ -315,12 +302,11 @@ InitiativeID)
 END
 GO
 
--- 5.9) ViewFacultyInitiatives Function
 CREATE FUNCTION ViewFacultyInitiatives (@FacultyID INT, @Status VARCHAR(50))
 RETURNS TABLE
 AS
 RETURN (
-    SELECT I.InitiativeID, I.Title, I.CourseCode, C.Title AS CourseTitle, S.Name + ' ' + S.AcademicYear AS 
+    SELECT I.InitiativeID, I.Title, I.CourseCode, C.Title AS CourseTitle, S.Name + ' ' + S.AcademicYear AS
 Semester,
            I.SectionID, M.FullName AS Submitter, I.ImplementationDeadline, I.Status
     FROM Innovation_Initiative I
@@ -331,7 +317,6 @@ Semester,
 )
 GO
 
--- 5.10) ViewOverdueMilestones Function
 CREATE FUNCTION ViewOverdueMilestones (@FacultyID INT)
 RETURNS TABLE
 AS
@@ -347,7 +332,6 @@ RETURN (
 )
 GO
 
--- 5.11) SendOverdueAlerts Stored procedure
 CREATE PROCEDURE SendOverdueAlerts
 @FacultyID INT
 AS
@@ -364,7 +348,7 @@ BEGIN
             SET @LastID = 0
         INSERT INTO Notification (MessageContent, CreatedAt, Urgency, Category)
         SELECT 'Milestone ' + CAST(MS.SeqNo AS VARCHAR(10)) + ' "' + MS.Title + '" of initiative '
-               + CAST(I.InitiativeID AS VARCHAR(10)) + ' "' + I.Title + '" is overdue (due ' + CAST(MS.DueDate AS 
+               + CAST(I.InitiativeID AS VARCHAR(10)) + ' "' + I.Title + '" is overdue (due ' + CAST(MS.DueDate AS
 VARCHAR(10)) + ')',
                GETDATE(), 'High', 'Milestone'
         FROM Milestone MS
@@ -377,9 +361,9 @@ VARCHAR(10)) + ')',
         FROM Milestone MS
         JOIN Innovation_Initiative I ON I.InitiativeID = MS.InitiativeID
         JOIN Initiative_Member IM ON IM.InitiativeID = I.InitiativeID
-        JOIN Notification N ON N.MessageContent = 'Milestone ' + CAST(MS.SeqNo AS VARCHAR(10)) + ' "' + MS.Title + 
+        JOIN Notification N ON N.MessageContent = 'Milestone ' + CAST(MS.SeqNo AS VARCHAR(10)) + ' "' + MS.Title +
 '" of initiative '
-               + CAST(I.InitiativeID AS VARCHAR(10)) + ' "' + I.Title + '" is overdue (due ' + CAST(MS.DueDate AS 
+               + CAST(I.InitiativeID AS VARCHAR(10)) + ' "' + I.Title + '" is overdue (due ' + CAST(MS.DueDate AS
 VARCHAR(10)) + ')'
         WHERE N.NotificationID > @LastID
         SELECT @Count = COUNT(*) FROM Notification WHERE NotificationID > @LastID
@@ -390,7 +374,6 @@ VARCHAR(10)) + ')'
 END
 GO
 
--- 5.17) GetFacultyDashboard Function
 CREATE FUNCTION GetFacultyDashboard (@FacultyID INT, @SemesterID INT)
 RETURNS TABLE
 AS
@@ -424,12 +407,11 @@ RETURN (
 )
 GO
 
--- 6.1) ViewEscalatedItems Function
 CREATE FUNCTION ViewEscalatedItems ()
 RETURNS TABLE
 AS
 RETURN (
-    SELECT 'Proposal' AS ItemType, P.ProposalID AS ItemID, P.Title, F.Name AS Faculty, A.DecisionDate AS 
+    SELECT 'Proposal' AS ItemType, P.ProposalID AS ItemID, P.Title, F.Name AS Faculty, A.DecisionDate AS
 EscalationDate
     FROM Modification_Proposal P
     JOIN Program G ON G.ProgramID = P.ProgramID
@@ -450,7 +432,6 @@ EscalationDate
 )
 GO
 
--- 6.2) MakeUniversityDecision Stored procedure
 CREATE PROCEDURE MakeUniversityDecision
 @ItemType VARCHAR(20), @ItemID INT, @ManagerID INT, @Decision VARCHAR(50), @Comments VARCHAR(1000)
 AS
@@ -464,7 +445,7 @@ BEGIN
         PRINT 'Error: decision must be Approved, Rejected or Returned.'
     ELSE IF @ItemType = 'Proposal' AND NOT EXISTS (SELECT * FROM Modification_Proposal WHERE ProposalID = @ItemID)
         PRINT 'Error: this proposal does not exist.'
-    ELSE IF @ItemType = 'Initiative' AND NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID = 
+    ELSE IF @ItemType = 'Initiative' AND NOT EXISTS (SELECT * FROM Innovation_Initiative WHERE InitiativeID =
 @ItemID)
         PRINT 'Error: this initiative does not exist.'
     ELSE IF @ItemType = 'Proposal'
@@ -480,12 +461,12 @@ BEGIN
     ELSE
     BEGIN
         IF @ItemType = 'Proposal'
-            INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID, 
+            INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID,
 InitiativeID)
             VALUES (@Decision, 'University', GETDATE(), @Comments, @ManagerID, @ItemID, NULL)
         ELSE
         BEGIN
-            INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID, 
+            INSERT INTO Approval_Record (Decision, DecisionLevel, DecisionDate, Comments, DeciderID, ProposalID,
 InitiativeID)
             VALUES (@Decision, 'University', GETDATE(), @Comments, @ManagerID, NULL, @ItemID)
             UPDATE Innovation_Initiative
@@ -494,36 +475,35 @@ InitiativeID)
         END
         SELECT @ApprovalID = MAX(ApprovalID) FROM Approval_Record
         INSERT INTO Audit_Log (ActionType, ChangeSummary, ActorID, ApprovalID)
-        VALUES ('Create', 'University decision ' + @Decision + ' on ' + @ItemType + ' ' + CAST(@ItemID AS 
+        VALUES ('Create', 'University decision ' + @Decision + ' on ' + @ItemType + ' ' + CAST(@ItemID AS
 VARCHAR(10)), @ManagerID, @ApprovalID)
         PRINT @ItemType + ' ' + CAST(@ItemID AS VARCHAR(10)) + ' was ' + @Decision + ' at university level.'
     END
 END
 GO
 
--- 6.3) GetUniversityDashboard Function
 CREATE FUNCTION GetUniversityDashboard (@SemesterID INT)
 RETURNS TABLE
 AS
 RETURN (
     SELECT F.FacultyID, F.Name AS Faculty,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'Draft') AS Draft,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'Pending Approval') AS PendingApproval,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'Returned') AS Returned,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'Escalated') AS Escalated,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'Approved') AS Approved,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'Rejected') AS Rejected,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'In Progress') AS InProgress,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID AND I.Status = 'Completed') AS Completed,
-           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID = 
+           (SELECT COUNT(*) FROM Innovation_Initiative I WHERE I.FacultyID = F.FacultyID AND I.SemesterID =
 @SemesterID) AS TotalInitiatives,
            (SELECT AVG(CASE WHEN I.Status = 'Rejected' THEN 0.0 ELSE 100.0 END)
             FROM Innovation_Initiative I
@@ -538,7 +518,6 @@ RETURN (
 )
 GO
 
--- 6.4) GetInitiativeStatsByType Function
 CREATE FUNCTION GetInitiativeStatsByType ()
 RETURNS TABLE
 AS
@@ -557,7 +536,6 @@ RETURN (
 )
 GO
 
--- 6.6) GetApprovalTurnaround Function
 CREATE FUNCTION GetApprovalTurnaround (@FacultyID INT)
 RETURNS INT
 AS
@@ -570,14 +548,14 @@ BEGIN
         FROM Modification_Proposal P
         JOIN Program G ON G.ProgramID = P.ProgramID
         JOIN Approval_Record A ON A.ProposalID = P.ProposalID
-        WHERE G.FacultyID = @FacultyID AND A.Decision IN ('Approved', 'Rejected') AND A.DecisionLevel IN ('Dean', 
+        WHERE G.FacultyID = @FacultyID AND A.Decision IN ('Approved', 'Rejected') AND A.DecisionLevel IN ('Dean',
 'University')
         GROUP BY P.ProposalID, P.SubmissionDate
         UNION ALL
         SELECT DATEDIFF(DAY, I.RegistrationDate, MIN(A.DecisionDate))
         FROM Innovation_Initiative I
         JOIN Approval_Record A ON A.InitiativeID = I.InitiativeID
-        WHERE I.FacultyID = @FacultyID AND A.Decision IN ('Approved', 'Rejected') AND A.DecisionLevel IN ('Dean', 
+        WHERE I.FacultyID = @FacultyID AND A.Decision IN ('Approved', 'Rejected') AND A.DecisionLevel IN ('Dean',
 'University')
         GROUP BY I.InitiativeID, I.RegistrationDate
     ) T
@@ -585,12 +563,11 @@ BEGIN
 END
 GO
 
--- 6.9) RankInitiativesByImpact Function
 CREATE FUNCTION RankInitiativesByImpact (@MetricType VARCHAR(50))
 RETURNS TABLE
 AS
 RETURN (
-    SELECT I.InitiativeID, I.Title, S.Name + ' ' + S.AcademicYear AS Semester, R.BaselineValue, 
+    SELECT I.InitiativeID, I.Title, S.Name + ' ' + S.AcademicYear AS Semester, R.BaselineValue,
 R.QuantitativeValue,
            CASE WHEN R.BaselineValue = 0 THEN NULL
                 ELSE (R.QuantitativeValue - R.BaselineValue) * 100.0 / R.BaselineValue END AS ImprovementPct
@@ -601,7 +578,6 @@ R.QuantitativeValue,
 )
 GO
 
--- 7.5) ViewMyInitiatives Function
 CREATE FUNCTION ViewMyInitiatives (@MemberID INT)
 RETURNS TABLE
 AS
@@ -617,7 +593,6 @@ RETURN (
 )
 GO
 
--- 7.13) NotifyOverdueMilestone Stored procedure
 CREATE PROCEDURE NotifyOverdueMilestone
 @MemberID INT, @InitiativeID INT, @SeqNo INT
 AS
@@ -634,7 +609,7 @@ BEGIN
         PRINT 'Error: this milestone is not overdue.'
     ELSE
     BEGIN
-        SELECT @Message = 'Milestone "' + MS.Title + '" of initiative "' + I.Title + '" is overdue (due ' + 
+        SELECT @Message = 'Milestone "' + MS.Title + '" of initiative "' + I.Title + '" is overdue (due ' +
 CAST(MS.DueDate AS VARCHAR(10)) + ')'
         FROM Milestone MS
         JOIN Innovation_Initiative I ON I.InitiativeID = MS.InitiativeID
@@ -644,7 +619,7 @@ CAST(MS.DueDate AS VARCHAR(10)) + ')'
         SELECT @NotificationID = MAX(NotificationID) FROM Notification
         INSERT INTO Notification_Recipient (NotificationID, MemberID, ReadStatus)
         VALUES (@NotificationID, @MemberID, 0)
-        PRINT 'Notification ' + CAST(@NotificationID AS VARCHAR(10)) + ' sent to member ' + CAST(@MemberID AS 
+        PRINT 'Notification ' + CAST(@NotificationID AS VARCHAR(10)) + ' sent to member ' + CAST(@MemberID AS
 VARCHAR(10)) + ': ' + @Message
     END
 END
