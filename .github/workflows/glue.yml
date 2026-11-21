@@ -32,7 +32,7 @@ jobs:
             for f in $files; do
               printf '\n' >> "$out"
               cat "$f" >> "$out"
-              printf '\nGO\n' >> "$out"
+              tail -n 1 "$f" | tr -d '\r' | grep -qiE '^[[:space:]]*GO[[:space:]]*$' || printf '\nGO\n' >> "$out"
             done
           }
           glue procedures Procedures.sql

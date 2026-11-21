@@ -1,4 +1,3 @@
--- Lamar's executions
 EXEC AddProgram 'Data Science', 'Bachelor', 136, '4 years', 'BSc in Data Science', 1;
 GO
 
@@ -58,13 +57,13 @@ GO
 
 DECLARE @PropID int = (SELECT ProposalID FROM Modification_Proposal WHERE Title = 'Add Data Engineering');
 EXEC DecideOnProposal @PropID, 1, 'Approved', 'Approved for next year';
-GO 
+GO
 
 SELECT * FROM ViewPendingProposals(1);
 GO
 
 EXEC AddPLO 1, 'PLO5', 'Manage and analyze large datasets', 'Skills';
-GO 
+GO
 
 EXEC CreateCurriculumVersion 1, 'v4', '2027-2028', '2027-09-01 to 2028-08-31', 'v3', '2026-2027';
 EXEC PlaceCourseInVersion 1, 'v4', '2027-2028', 'CSEN701', 8, 1;
@@ -79,9 +78,6 @@ GO
 SELECT * FROM Curriculum_Version WHERE ProgramID = 1;
 GO
 
--- =============================================
--- Error tests
--- =============================================
 EXEC AddCourse 'CSEN701', 'Again', 'Test', 3, 'Year 4', 'Core', 8, 'CS', NULL, NULL;
 EXEC AddCourse 'CSEN799', 'Test', 'Test', 3, 'Year 4', 'Optional', NULL, NULL, NULL, NULL;
 EXEC AddCourseRequisite 'CSEN701', 'CSEN701', 'Prerequisite';

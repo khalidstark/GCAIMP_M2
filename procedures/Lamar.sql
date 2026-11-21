@@ -1,4 +1,3 @@
--- Lamar's procedures
 CREATE PROCEDURE AddProgram
     @Name varchar(150),
     @DegreeLevel varchar(50),
@@ -14,7 +13,6 @@ BEGIN
     SELECT SCOPE_IDENTITY() AS ProgramID;
 END;
 GO
------------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE AddCourse
     @CourseCode varchar(20),
@@ -54,7 +52,6 @@ BEGIN
     PRINT 'Course added.';
 END;
 GO
-----------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE AddCourseRequisite
     @CourseCode varchar(20),
@@ -94,7 +91,6 @@ BEGIN
     PRINT 'Requisite added.';
 END;
 GO
-------------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE AddILO
     @CourseCode varchar(20),
@@ -122,8 +118,6 @@ BEGIN
 END;
 GO
 
-----------------------------------------------------------------------------------------------------------------------------
-
 CREATE PROCEDURE UpdateILO
     @CourseCode varchar(20),
     @ILOCode varchar(20),
@@ -145,7 +139,7 @@ BEGIN
     PRINT 'ILO updated.';
 END;
 GO
---------------------------------------------------------------------------------------------------------------------------------
+
 CREATE PROCEDURE MapILOToPLO
     @CourseCode varchar(20),
     @ILOCode varchar(20),
@@ -187,8 +181,6 @@ BEGIN
     SELECT SCOPE_IDENTITY() AS MappingID;
 END;
 GO
-
---------------------------------------------------------------------
 
 CREATE PROCEDURE SubmitModificationProposal
     @ProposerID int,
@@ -239,7 +231,6 @@ BEGIN
     SELECT SCOPE_IDENTITY() AS ProposalID;
 END;
 GO
- ----------------------------------------------------------------------------------------------------------------------------------- 
 
 CREATE PROCEDURE ReviseModificationProposal
     @ProposalID int,
@@ -270,8 +261,6 @@ BEGIN
 END;
 GO
 
--------------------------------------------------------------------------------------------------------------------------------------------
-
 CREATE FUNCTION ViewProposalStatus (@ProposalID int)
 RETURNS TABLE
 AS
@@ -285,7 +274,7 @@ RETURN
     JOIN Academic_Member am ON am.MemberID = ar.DeciderID
     WHERE ar.ProposalID = @ProposalID;
 GO
---------------------------------------------------------------------------------------------------------------------------------------------
+
 CREATE FUNCTION ViewCurriculumVersion (@ProgramID int, @VersionLabel varchar(20), @AcademicYear varchar(50))
 RETURNS TABLE
 AS
@@ -301,7 +290,7 @@ RETURN
       AND vc.VersionLabel = @VersionLabel
       AND vc.AcademicYear = @AcademicYear;
 GO
-----------------------------------------------------------------------------------------------------------------------------------------
+
 CREATE FUNCTION ViewCourseILOs (@CourseCode varchar(20))
 RETURNS TABLE
 AS
@@ -310,8 +299,6 @@ RETURN
     FROM ILO
     WHERE CourseCode = @CourseCode;
 GO
-
---------------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE FUNCTION CompareCurriculumVersions (@ProgramID int,
     @OldVersionLabel varchar(20), @OldAcademicYear varchar(50),
@@ -339,8 +326,6 @@ RETURN
        OR o.StudySemesterNo <> n.StudySemesterNo;
 GO
 
- -----------------------------------------------------------------------------------------------------------------
-
 CREATE FUNCTION ViewProgramCurriculumMap (@ProgramID int)
 RETURNS TABLE
 AS
@@ -359,8 +344,6 @@ RETURN
     WHERE om.ProgramID = @ProgramID;
 GO
 
------------------------------------------------------------------------------------------------------------------------------------------------------
-
 CREATE FUNCTION GetUncoveredPLOs (@ProgramID int)
 RETURNS TABLE
 AS
@@ -373,7 +356,6 @@ RETURN
                         AND om.PLOCode = p.PLOCode
                         AND om.MappingStatus = 'Approved');
 GO
- ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE FUNCTION GetPLOCoverageSummary (@ProgramID int)
 RETURNS TABLE
@@ -393,7 +375,7 @@ RETURN
     WHERE p.ProgramID = @ProgramID
     GROUP BY p.PLOCode, p.Statement;
 GO
------------------------------------------------------------------------------------------------------------------------------------------------------
+
 CREATE PROCEDURE ReviewOutcomeMapping
     @MappingID int,
     @MappingStatus varchar(50)
@@ -419,8 +401,6 @@ BEGIN
 END;
 GO
 
------------------------------------------------------------------------------------------------------------------------------------------------------
-
 CREATE FUNCTION ViewPendingProposals (@ProgramID int)
 RETURNS TABLE
 AS
@@ -439,8 +419,6 @@ RETURN
                         AND ar.Decision IN ('Approved', 'Rejected')
                         AND ar.DecisionLevel IN ('Dean', 'University'));
 GO
-
- ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE ReviewModificationProposal
     @ProposalID int,
@@ -474,8 +452,6 @@ BEGIN
 END;
 GO
 
------------------------------------------------------------------------------------------------------------------------------------------------------
-
 CREATE FUNCTION ViewCourseProposalHistory (@CourseCode varchar(20))
 RETURNS TABLE
 AS
@@ -493,8 +469,6 @@ RETURN
                  ORDER BY ar.DecisionDate DESC, ar.ApprovalID DESC) latest
     WHERE mp.CourseCode = @CourseCode;
 GO
-
------------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE DecideOnProposal
     @ProposalID int,
@@ -538,8 +512,6 @@ BEGIN
 END;
 GO
 
------------------------------------------------------------------------------------------------------------------------------------------------------
-
 CREATE PROCEDURE AddPLO
     @ProgramID int,
     @PLOCode varchar(20),
@@ -565,8 +537,6 @@ BEGIN
     PRINT 'PLO added.';
 END;
 GO
-
------------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE CreateCurriculumVersion
     @ProgramID int,
@@ -615,8 +585,6 @@ BEGIN
 END;
 GO
 
------------------------------------------------------------------------------------------------------------------------------------------------------
-
 CREATE PROCEDURE PlaceCourseInVersion
     @ProgramID int,
     @VersionLabel varchar(20),
@@ -660,8 +628,6 @@ BEGIN
     PRINT 'Course placed in version.';
 END;
 GO
-
------------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE PROCEDURE ApproveCurriculumVersion
     @ProgramID int,
