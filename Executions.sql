@@ -131,9 +131,6 @@ EXEC NotifyApprovalDecision 6, 'Proposal', 1, 'Approved';
 EXEC NotifyApprovalDecision 4, 'Proposal', 1, 'Approved';
 GO
 
-GO
-
--- Lamar's executions
 EXEC AddProgram 'Data Science', 'Bachelor', 136, '4 years', 'BSc in Data Science', 1;
 GO
 
@@ -193,13 +190,13 @@ GO
 
 DECLARE @PropID int = (SELECT ProposalID FROM Modification_Proposal WHERE Title = 'Add Data Engineering');
 EXEC DecideOnProposal @PropID, 1, 'Approved', 'Approved for next year';
-GO 
+GO
 
 SELECT * FROM ViewPendingProposals(1);
 GO
 
 EXEC AddPLO 1, 'PLO5', 'Manage and analyze large datasets', 'Skills';
-GO 
+GO
 
 EXEC CreateCurriculumVersion 1, 'v4', '2027-2028', '2027-09-01 to 2028-08-31', 'v3', '2026-2027';
 EXEC PlaceCourseInVersion 1, 'v4', '2027-2028', 'CSEN701', 8, 1;
@@ -214,9 +211,6 @@ GO
 SELECT * FROM Curriculum_Version WHERE ProgramID = 1;
 GO
 
--- =============================================
--- Error tests
--- =============================================
 EXEC AddCourse 'CSEN701', 'Again', 'Test', 3, 'Year 4', 'Core', 8, 'CS', NULL, NULL;
 EXEC AddCourse 'CSEN799', 'Test', 'Test', 3, 'Year 4', 'Optional', NULL, NULL, NULL, NULL;
 EXEC AddCourseRequisite 'CSEN701', 'CSEN701', 'Prerequisite';
@@ -236,8 +230,6 @@ EXEC CreateCurriculumVersion 1, 'v4', '2027-2028', NULL, NULL, NULL;
 EXEC CreateCurriculumVersion 1, 'v5', '2028-2029', NULL, 'v9', '2020-2021';
 EXEC PlaceCourseInVersion 1, 'v4', '2027-2028', 'CSEN702', 8, 0;
 EXEC ApproveCurriculumVersion 1, 'v2', '2025-2026';
-GO
-
 GO
 
 EXEC AddSemester 'Summer', '2026-2027', '2027-07-10', '2027-08-31';
@@ -354,23 +346,18 @@ GO
 EXEC NotifyAccreditationDeadline 1, 30;
 EXEC NotifyAccreditationDeadline 999, 30;
 GO
-GO
 
--- 2.13) RegisterInnovationInitiative Stored procedure
-EXEC RegisterInnovationInitiative 4, 1, 'AI quiz generator for Data Structures', 'ChatGPT Edu generates weekly 
-practice quizzes', 'Complexity quiz results are still close to the target', 'CSEN301', 3, 'T2', 4, '2027-06-30', 
+EXEC RegisterInnovationInitiative 4, 1, 'AI quiz generator for Data Structures', 'ChatGPT Edu generates weekly practice quizzes', 'Complexity quiz results are still close to the target', 'CSEN301', 3, 'T2', 4, '2027-06-30',
 7;
 EXEC RegisterInnovationInitiative 4, 1, 'Wrong offering', NULL, NULL, 'CSEN999', 3, 'T1', 4, '2027-06-30', NULL;
 GO
 
--- 2.18) AssignInitiativeMember Stored procedure
 DECLARE @init INT;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
 EXEC AssignInitiativeMember @init, 8, 'Supporting TA';
 EXEC AssignInitiativeMember @init, 8, 'Contributor';
 GO
 
--- 2.20) AddMilestone Stored procedure
 DECLARE @init INT;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
 EXEC AddMilestone @init, 'Write quiz prompts', 'Prompt templates for 10 topics', '2026-12-15';
@@ -378,7 +365,6 @@ EXEC AddMilestone @init, 'Pilot in section T2', 'Weekly quizzes for one month', 
 EXEC AddMilestone 9999, 'Nothing', NULL, '2027-01-01';
 GO
 
--- 2.21) CompleteMilestone Stored procedure
 DECLARE @init INT;
 DECLARE @today DATE;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
@@ -387,43 +373,36 @@ EXEC CompleteMilestone @init, 1, @today;
 EXEC CompleteMilestone @init, 99, @today;
 GO
 
--- 2.25) RequestInitiativeApproval Stored procedure
 DECLARE @init INT;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
 EXEC RequestInitiativeApproval @init, 4;
 EXEC RequestInitiativeApproval @init, 4;
 GO
 
--- 2.26) ViewInitiativeProgress Function
 SELECT * FROM dbo.ViewInitiativeProgress(1);
 SELECT * FROM dbo.ViewInitiativeProgress(9999);
 GO
 
--- 2.27) CalculateInitiativeCompletion Function
 SELECT dbo.CalculateInitiativeCompletion(1) AS CompletionPct;
 SELECT dbo.CalculateInitiativeCompletion(9999) AS CompletionPct;
 GO
 
--- 3.6) UpdateMilestoneStatus Stored procedure
 DECLARE @init INT;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
 EXEC UpdateMilestoneStatus @init, 2, 'In Progress';
 EXEC UpdateMilestoneStatus @init, 2, 'Done';
 GO
 
--- 5.1) ViewFacultyPendingApprovals Function
 SELECT * FROM dbo.ViewFacultyPendingApprovals(1);
 SELECT * FROM dbo.ViewFacultyPendingApprovals(3);
 GO
 
--- 5.3) DecideOnInitiative Stored procedure
 DECLARE @init INT;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
 EXEC DecideOnInitiative @init, 1, 'Returned', 'Explain how quiz quality is checked';
 EXEC DecideOnInitiative @init, 2, 'Approved', NULL;
 GO
 
--- 5.4) EscalateToUniversity Stored procedure
 DECLARE @init INT;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
 EXEC RequestInitiativeApproval @init, 4;
@@ -431,68 +410,54 @@ EXEC EscalateToUniversity @init, 1, 'Needs a university-wide licence for ChatGPT
 EXEC EscalateToUniversity @init, 1, 'Again';
 GO
 
--- 5.9) ViewFacultyInitiatives Function
 SELECT * FROM dbo.ViewFacultyInitiatives(1, 'Escalated');
 SELECT * FROM dbo.ViewFacultyInitiatives(9999, 'Escalated');
 GO
 
--- 5.10) ViewOverdueMilestones Function
 SELECT * FROM dbo.ViewOverdueMilestones(1);
 SELECT * FROM dbo.ViewOverdueMilestones(9999);
 GO
 
--- 5.11) SendOverdueAlerts Stored procedure
 EXEC SendOverdueAlerts 1;
 EXEC SendOverdueAlerts 9999;
 GO
 
--- 5.17) GetFacultyDashboard Function
 SELECT * FROM dbo.GetFacultyDashboard(1, 3);
 SELECT * FROM dbo.GetFacultyDashboard(1, 9999);
 GO
 
--- 6.1) ViewEscalatedItems Function
 SELECT * FROM dbo.ViewEscalatedItems();
 SELECT * FROM dbo.ViewEscalatedItems() WHERE ItemType = 'Proposal' AND ItemID = 9999;
 GO
 
--- 6.2) MakeUniversityDecision Stored procedure
 DECLARE @init INT;
 SELECT @init = MAX(InitiativeID) FROM Innovation_Initiative WHERE Title = 'AI quiz generator for Data Structures';
 EXEC MakeUniversityDecision 'Initiative', @init, 12, 'Approved', 'Licence approved for one year';
 EXEC MakeUniversityDecision 'Proposal', 1, 12, 'Approved', NULL;
 GO
 
--- 6.3) GetUniversityDashboard Function
 SELECT * FROM dbo.GetUniversityDashboard(3);
 SELECT * FROM dbo.GetUniversityDashboard(9999);
 GO
 
--- 6.4) GetInitiativeStatsByType Function
 SELECT * FROM dbo.GetInitiativeStatsByType();
 SELECT * FROM dbo.GetInitiativeStatsByType() WHERE InitiativeType = 'Unknown Type';
 GO
 
--- 6.6) GetApprovalTurnaround Function
 SELECT dbo.GetApprovalTurnaround(1) AS AvgTurnaroundDays;
 SELECT dbo.GetApprovalTurnaround(9999) AS AvgTurnaroundDays;
 GO
 
--- 6.9) RankInitiativesByImpact Function
 SELECT * FROM dbo.RankInitiativesByImpact('Pass Rate') ORDER BY ImprovementPct DESC;
 SELECT * FROM dbo.RankInitiativesByImpact('Unknown Metric');
 GO
 
--- 7.5) ViewMyInitiatives Function
 SELECT * FROM dbo.ViewMyInitiatives(4);
 SELECT * FROM dbo.ViewMyInitiatives(9999);
 GO
 
--- 7.13) NotifyOverdueMilestone Stored procedure
 EXEC NotifyOverdueMilestone 3, 1, 2;
 EXEC NotifyOverdueMilestone 10, 1, 2;
-GO
-
 GO
 
 EXEC AddTool 'Gradescope AI', 'AI assisted grading of programming assignments', 'Assessment', 'Under Review', 'AI Tool',
@@ -607,5 +572,4 @@ GO
 
 SELECT * FROM ViewMyPendingTraining(4);
 SELECT * FROM ViewMyPendingTraining(999);
-GO
 GO
